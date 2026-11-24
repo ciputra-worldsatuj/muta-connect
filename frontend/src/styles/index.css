@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #1E3A8A;
+    --color-primary-hover: #172E6E;
+    --color-accent: #0D9488;
+    --color-bg: #F8FAFC;
+    --color-surface: #FFFFFF;
+    --color-border: #CBD5E1;
+    --color-text: #0F172A;
+    --color-text-muted: #475569;
+  }
+
+  .dark {
+    --color-primary: #93B4FF;
+    --color-primary-hover: #B6CCFF;
+    --color-accent: #2DD4BF;
+    --color-bg: #0B1220;
+    --color-surface: #131C2E;
+    --color-border: #2A3650;
+    --color-text: #F1F5F9;
+    --color-text-muted: #A8B3C7;
+  }
+
+  /* Angka dashboard tabular numbers sesuai Design System */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Target fokus aksesibilitas cincin 3px sesuai WCAG 2.2 AA (Design System) */
+  :focus-visible {
+    outline: 3px solid #0D9488;
+    outline-offset: 2px;
+  }
+}
