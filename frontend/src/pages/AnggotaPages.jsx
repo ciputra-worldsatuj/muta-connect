@@ -10,16 +10,22 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   ArrowLeft,
-  Download
+  Download,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 /**
- * UF-02: Kelola Anggota dan Impor CSV
- * Aturan Validasi:
- * - Kolom wajib CSV: no_unit, nama_anggota, nama_tenant, npp
- * - NPP angka > 0
- * - Multi-unit digabung berdasarkan pemilik
- * - Kerahasiaan data pribadi (email/HP) hanya untuk Admin (BR-13)
+ * UF-02: Kelola Anggota dan Impor CSV (Revisi 3)
+ * Field Wajib:
+ * - Kode Unit *
+ * - Bobot NPP (%) *
+ * - Nama Anggota *
+ * - Penanggung Jawab *
+ * - WhatsApp *
+ * - Email *
+ * Aksi: Edit & Hapus
  */
 
 export function DaftarAnggotaSkeleton() {
@@ -27,6 +33,20 @@ export function DaftarAnggotaSkeleton() {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Modal Tambah / Edit Anggota
+  const [showModal, setShowModal] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [formData, setFormData] = useState({
+    no_unit: '',
+    npp: '',
+    nama_pemilik: '',
+    penanggung_jawab: '',
+    no_hp: '',
+    email: ''
+  });
+  const [formError, setFormError] = useState('');
+  const [formSuccess, setFormSuccess] = useState(false);
 
   useEffect(() => {
     loadMembers();
@@ -44,9 +64,89 @@ export function DaftarAnggotaSkeleton() {
     }
   };
 
+  const handleOpenAdd = () => {
+    setEditingMember(null);
+    setFormData({
+      no_unit: '',
+      npp: '',
+      nama_pemilik: '',
+      penanggung_jawab: '',
+      no_hp: '',
+      email: ''
+    });
+    setFormError('');
+    setFormSuccess(false);
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (member) => {
+    setEditingMember(member);
+    setFormData({
+      no_unit: member.no_unit || '',
+      npp: String(member.npp || ''),
+      nama_pemilik: member.nama_pemilik || '',
+      penanggung_jawab: member.penanggung_jawab || member.nama_pemilik || '',
+      no_hp: member.no_hp || '',
+      email: member.email || ''
+    });
+    setFormError('');
+    setFormSuccess(false);
+    setShowModal(true);
+  };
+
+  const handleDeleteMember = async (member) => {
+    if (!window.confirm(`Yakin ingin menghapus anggota ${member.nama_pemilik} (Unit ${member.no_unit})?`)) {
+      return;
+    }
+
+    try {
+      await ApiService.request('deleteMember', { id: member.id });
+      loadMembers();
+    } catch (err) {
+      alert('Gagal hapus anggota: ' + err.message);
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    const { no_unit, npp, nama_pemilik, penanggung_jawab, no_hp, email } = formData;
+
+    if (!no_unit || !npp || !nama_pemilik || !penanggung_jawab || !no_hp || !email) {
+      setFormError('Seluruh field bertanda bintang (*) wajib diisi.');
+      return;
+    }
+
+    if (parseFloat(npp) <= 0 || isNaN(parseFloat(npp))) {
+      setFormError('Bobot NPP harus berupa angka lebih besar dari 0.');
+      return;
+    }
+
+    try {
+      await ApiService.request('saveMember', {
+        id: editingMember ? editingMember.id : null,
+        tenantId: currentTenant?.id || 't-cw1',
+        no_unit: no_unit.trim(),
+        npp: parseFloat(npp),
+        nama_pemilik: nama_pemilik.trim(),
+        penanggung_jawab: penanggung_jawab.trim(),
+        no_hp: no_hp.trim(),
+        email: email.trim()
+      });
+
+      setFormSuccess(true);
+      setTimeout(() => {
+        setShowModal(false);
+        loadMembers();
+      }, 700);
+    } catch (err) {
+      setFormError(err.message || 'Gagal menyimpan data anggota.');
+    }
+  };
+
   const filtered = members.filter(m => 
     (m.no_unit || '').toLowerCase().includes(search.toLowerCase()) ||
-    (m.nama_pemilik || '').toLowerCase().includes(search.toLowerCase())
+    (m.nama_pemilik || '').toLowerCase().includes(search.toLowerCase()) ||
+    (m.penanggung_jawab || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const totalNpp = filtered.reduce((acc, m) => acc + (parseFloat(m.npp) || 0), 0);
@@ -68,7 +168,7 @@ export function DaftarAnggotaSkeleton() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nomor unit atau nama..."
+              placeholder="Cari kode unit, nama, penanggung jawab..."
               className="w-full pl-9 pr-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm text-content-main focus:outline-none focus:ring-2 focus:ring-brand-accent"
             />
           </div>
@@ -81,41 +181,45 @@ export function DaftarAnggotaSkeleton() {
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-border text-xs font-semibold text-content-main hover:bg-surface-bg transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5 text-brand-accent" />
-                  <span>Impor CSV (S-06)</span>
+                  <span>Impor CSV</span>
                 </a>
-                <a
-                  href="#/anggota/baru"
+                <button
+                  type="button"
+                  onClick={handleOpenAdd}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Anggota (S-05)</span>
-                </a>
+                  <span>+ Tambah Anggota</span>
+                </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Tabel Anggota */}
+        {/* Tabel Anggota Lengkap Sesuai Revisi 3 */}
         <div className="border border-surface-border rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-surface-bg border-b border-surface-border text-content-muted font-bold uppercase tracking-wider">
-                <th className="px-4 py-3">No. Unit</th>
+                <th className="px-4 py-3">Kode Unit</th>
                 <th className="px-4 py-3">Nama Anggota</th>
+                <th className="px-4 py-3">Penanggung Jawab</th>
                 <th className="px-4 py-3 text-right">Bobot NPP</th>
-                {isAdmin && <th className="px-4 py-3">Kontak Pribadi (Admin)</th>}
+                <th className="px-4 py-3">WhatsApp</th>
+                <th className="px-4 py-3">Email</th>
+                {isAdmin && <th className="px-4 py-3 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
               {loading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="px-4 py-8 text-center text-content-muted">
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-8 text-center text-content-muted">
                     Memuat data anggota...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="px-4 py-8 text-center text-content-muted">
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-8 text-center text-content-muted">
                     Tidak ada anggota yang cocok dengan pencarian "{search}".
                   </td>
                 </tr>
@@ -128,13 +232,38 @@ export function DaftarAnggotaSkeleton() {
                     <td className="px-4 py-3 font-medium text-content-main">
                       {m.nama_pemilik}
                     </td>
+                    <td className="px-4 py-3 text-content-main font-semibold">
+                      {m.penanggung_jawab || m.nama_pemilik}
+                    </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-content-main tabular-nums">
                       {parseFloat(m.npp).toFixed(4)}%
                     </td>
+                    <td className="px-4 py-3 font-mono text-content-muted">
+                      {m.no_hp || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-content-muted">
+                      {m.email || '-'}
+                    </td>
                     {isAdmin && (
-                      <td className="px-4 py-3 text-content-muted">
-                        <div>{m.no_hp || '-'}</div>
-                        <div className="text-[11px] text-content-muted/80">{m.email || '-'}</div>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(m)}
+                            className="p-1.5 rounded text-brand-primary hover:bg-blue-50 border border-surface-border transition-colors"
+                            title="Edit Anggota"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMember(m)}
+                            className="p-1.5 rounded text-status-danger hover:bg-red-50 border border-surface-border transition-colors"
+                            title="Hapus Anggota"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -144,36 +273,170 @@ export function DaftarAnggotaSkeleton() {
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="bg-surface-bg border-t border-surface-border font-bold text-content-main">
-                  <td colSpan={2} className="px-4 py-3 text-right">
+                  <td colSpan={3} className="px-4 py-3 text-right">
                     Total NPP Ditampilkan:
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-brand-primary tabular-nums">
                     {totalNpp.toFixed(4)}%
                   </td>
-                  {isAdmin && <td />}
+                  <td colSpan={isAdmin ? 3 : 2} />
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
+
+        {/* Modal Form Tambah / Edit Anggota */}
+        {showModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-surface-card rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 animate-in fade-in zoom-in duration-150">
+              <div className="flex justify-between items-center pb-2 border-b border-surface-border">
+                <h3 className="font-bold text-base text-content-main">
+                  {editingMember ? 'Edit Data Anggota' : 'Tambah Anggota Baru'}
+                </h3>
+                <button type="button" onClick={() => setShowModal(false)} className="text-content-muted hover:text-content-main">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {formError && (
+                <div className="p-3 bg-red-50 border border-status-danger text-status-danger rounded-xl text-xs">
+                  {formError}
+                </div>
+              )}
+
+              {formSuccess && (
+                <div className="p-3 bg-green-50 border border-status-success text-status-success rounded-xl text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Data anggota berhasil disimpan!</span>
+                </div>
+              )}
+
+              <form onSubmit={handleFormSubmit} className="space-y-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-content-main mb-1">Kode Unit *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.no_unit}
+                      onChange={(e) => setFormData({ ...formData, no_unit: e.target.value })}
+                      placeholder="Contoh: A-101 atau PH-01"
+                      className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-content-main mb-1">Bobot NPP (%) *</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      required
+                      value={formData.npp}
+                      onChange={(e) => setFormData({ ...formData, npp: e.target.value })}
+                      placeholder="Contoh: 1.2500"
+                      className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs font-mono tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-content-main mb-1">Nama Anggota *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.nama_pemilik}
+                    onChange={(e) => setFormData({ ...formData, nama_pemilik: e.target.value })}
+                    placeholder="Nama Pemilik Unit / PT Pemilik"
+                    className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-content-main mb-1">Penanggung Jawab *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.penanggung_jawab}
+                    onChange={(e) => setFormData({ ...formData, penanggung_jawab: e.target.value })}
+                    placeholder="Nama PIC / Penanggung Jawab Unit"
+                    className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-content-main mb-1">WhatsApp *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.no_hp}
+                      onChange={(e) => setFormData({ ...formData, no_hp: e.target.value })}
+                      placeholder="Contoh: 081234567890"
+                      className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-content-main mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="nama@email.com"
+                      className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 flex gap-2 border-t border-surface-border">
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm"
+                  >
+                    {editingMember ? 'Simpan Perubahan Anggota' : 'Tambahkan Anggota'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2.5 border border-surface-border rounded-lg text-xs font-semibold text-content-muted hover:bg-surface-bg"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </SkeletonPage>
   );
 }
 
+// --- S-05: FORM ANGGOTA DAN UNIT (STANDALONE PAGE REDIRECT KE DAFTAR DENGAN MODAL) ---
 export function FormAnggotaSkeleton() {
   const { currentTenant } = useApp();
-  const [noUnit, setNoUnit] = useState('');
-  const [namaPemilik, setNamaPemilik] = useState('');
-  const [npp, setNpp] = useState('');
-  const [email, setEmail] = useState('');
-  const [noHp, setNoHp] = useState('');
+  const [formData, setFormData] = useState({
+    no_unit: '',
+    npp: '',
+    nama_pemilik: '',
+    penanggung_jawab: '',
+    no_hp: '',
+    email: ''
+  });
   const [status, setStatus] = useState({ error: '', success: false, loading: false });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!noUnit || !namaPemilik || !npp || parseFloat(npp) <= 0) {
-      setStatus({ error: 'Nomor unit, nama anggota, dan bobot NPP (>0) wajib diisi.', success: false, loading: false });
+    const { no_unit, npp, nama_pemilik, penanggung_jawab, no_hp, email } = formData;
+
+    if (!no_unit || !npp || !nama_pemilik || !penanggung_jawab || !no_hp || !email) {
+      setStatus({ error: 'Seluruh field bertanda bintang (*) wajib diisi.', success: false, loading: false });
+      return;
+    }
+
+    if (parseFloat(npp) <= 0 || isNaN(parseFloat(npp))) {
+      setStatus({ error: 'Bobot NPP harus berupa angka lebih besar dari 0.', success: false, loading: false });
       return;
     }
 
@@ -181,11 +444,12 @@ export function FormAnggotaSkeleton() {
     try {
       await ApiService.request('saveMember', {
         tenantId: currentTenant?.id || 't-cw1',
-        no_unit: noUnit,
-        nama_pemilik: namaPemilik,
+        no_unit: no_unit.trim(),
         npp: parseFloat(npp),
-        email,
-        no_hp: noHp
+        nama_pemilik: nama_pemilik.trim(),
+        penanggung_jawab: penanggung_jawab.trim(),
+        no_hp: no_hp.trim(),
+        email: email.trim()
       });
       setStatus({ error: '', success: true, loading: false });
       setTimeout(() => {
@@ -200,7 +464,7 @@ export function FormAnggotaSkeleton() {
     <SkeletonPage
       screenId="S-05"
       title="Tambah Anggota & Unit Baru"
-      subtitle="Input data pemilik dan proporsi bobot hak suara NPP (Admin)"
+      subtitle="Input data pemilik, penanggung jawab, dan proporsi bobot hak suara NPP (Admin)"
       roles={['admin']}
     >
       <div className="max-w-2xl bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">
@@ -219,12 +483,12 @@ export function FormAnggotaSkeleton() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-content-main mb-1">Nomor Unit *</label>
+              <label className="block text-xs font-semibold text-content-main mb-1">Kode Unit *</label>
               <input
                 type="text"
                 required
-                value={noUnit}
-                onChange={(e) => setNoUnit(e.target.value)}
+                value={formData.no_unit}
+                onChange={(e) => setFormData({ ...formData, no_unit: e.target.value })}
                 placeholder="Misal: A-101 atau PH-01"
                 className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
               />
@@ -236,8 +500,8 @@ export function FormAnggotaSkeleton() {
                 step="0.0001"
                 min="0.0001"
                 required
-                value={npp}
-                onChange={(e) => setNpp(e.target.value)}
+                value={formData.npp}
+                onChange={(e) => setFormData({ ...formData, npp: e.target.value })}
                 placeholder="Misal: 1.2543"
                 className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm font-mono tabular-nums"
               />
@@ -245,34 +509,48 @@ export function FormAnggotaSkeleton() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-content-main mb-1">Nama Lengkap Pemilik Sesuai Sertifikat *</label>
+            <label className="block text-xs font-semibold text-content-main mb-1">Nama Anggota *</label>
             <input
               type="text"
               required
-              value={namaPemilik}
-              onChange={(e) => setNamaPemilik(e.target.value)}
-              placeholder="Misal: Hendra Wijaya"
+              value={formData.nama_pemilik}
+              onChange={(e) => setFormData({ ...formData, nama_pemilik: e.target.value })}
+              placeholder="Nama Pemilik Unit Sesuai Sertifikat"
+              className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-content-main mb-1">Penanggung Jawab *</label>
+            <input
+              type="text"
+              required
+              value={formData.penanggung_jawab}
+              onChange={(e) => setFormData({ ...formData, penanggung_jawab: e.target.value })}
+              placeholder="Nama PIC / Penanggung Jawab Unit"
               className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-content-main mb-1">Nomor WhatsApp</label>
+              <label className="block text-xs font-semibold text-content-main mb-1">WhatsApp *</label>
               <input
                 type="tel"
-                value={noHp}
-                onChange={(e) => setNoHp(e.target.value)}
+                required
+                value={formData.no_hp}
+                onChange={(e) => setFormData({ ...formData, no_hp: e.target.value })}
                 placeholder="Misal: 081234567890"
                 className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-content-main mb-1">Email</label>
+              <label className="block text-xs font-semibold text-content-main mb-1">Email *</label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="nama@email.com"
                 className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
               />
@@ -297,6 +575,7 @@ export function FormAnggotaSkeleton() {
   );
 }
 
+// --- S-06: IMPOR CSV ---
 export function ImporCSVSkeleton() {
   const { currentTenant } = useApp();
   const [parsedRows, setParsedRows] = useState([]);
@@ -304,12 +583,12 @@ export function ImporCSVSkeleton() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [importDone, setImportDone] = useState(false);
 
-  // Template unduhan CSV resmi (Validation rules UF-02)
+  // Template unduhan CSV resmi (Revisi 3)
   const downloadTemplate = () => {
     const csvContent = "data:text/csv;charset=utf-8," +
-      "no_unit,nama_anggota,nama_tenant,npp,email,no_hp\n" +
-      "A-201,Budi Santoso,PPPSRSKC Ciputra World 1,1.2500,budi@example.com,081234567890\n" +
-      "A-202,Dewi Lestari,PPPSRSKC Ciputra World 1,1.1000,dewi@example.com,081234567891\n";
+      "no_unit,nama_anggota,penanggung_jawab,nama_tenant,npp,email,no_hp\n" +
+      "A-201,Budi Santoso,Budi Santoso,PPPSRSKC Ciputra World 1,1.2500,budi@example.com,081234567890\n" +
+      "A-202,PT Megah Abadi,Dewi Lestari (Direktur),PPPSRSKC Ciputra World 1,1.1000,dewi@example.com,081234567891\n";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -351,7 +630,7 @@ export function ImporCSVSkeleton() {
         invalid.push({
           rowNum: index + 2,
           data: row,
-          reason: !row.no_unit ? 'Nomor unit kosong' : !row.nama_anggota ? 'Nama anggota kosong' : 'NPP harus angka > 0'
+          reason: !row.no_unit ? 'Kode unit kosong' : !row.nama_anggota ? 'Nama anggota kosong' : 'NPP harus angka > 0'
         });
       } else {
         valid.push(row);
@@ -386,16 +665,16 @@ export function ImporCSVSkeleton() {
     <SkeletonPage
       screenId="S-06"
       title="Impor Data Anggota via CSV"
-      subtitle="Validasi massal nomor unit, nama, dan bobot NPP (Admin)"
+      subtitle="Validasi massal kode unit, nama, penanggung jawab, dan bobot NPP (Admin)"
       roles={['admin']}
     >
       <div className="bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-6">
         {/* Panduan & Tombol Template */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 bg-blue-50/60 border border-blue-200 rounded-xl">
           <div>
-            <div className="text-xs font-bold text-brand-primary">Format Kolom Wajib CSV (UF-02):</div>
+            <div className="text-xs font-bold text-brand-primary">Format Kolom Wajib CSV (Revisi 3):</div>
             <div className="text-[11px] text-content-muted mt-0.5 font-mono">
-              no_unit, nama_anggota, nama_tenant, npp, email, no_hp
+              no_unit, nama_anggota, penanggung_jawab, nama_tenant, npp, email, no_hp
             </div>
           </div>
           <button
@@ -425,7 +704,7 @@ export function ImporCSVSkeleton() {
           </div>
         </div>
 
-        {/* Pratinjau Baris Valid & Gagal (UF-02 Main Flow langkah 5) */}
+        {/* Pratinjau Baris Valid & Gagal */}
         {(parsedRows.length > 0 || failedRows.length > 0) && (
           <div className="space-y-4 pt-2">
             <div className="flex gap-4 text-xs font-bold">
@@ -447,8 +726,9 @@ export function ImporCSVSkeleton() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-surface-bg sticky top-0 border-b border-surface-border">
                     <tr className="text-content-muted font-bold">
-                      <th className="px-3 py-2">No. Unit</th>
+                      <th className="px-3 py-2">Kode Unit</th>
                       <th className="px-3 py-2">Nama Anggota</th>
+                      <th className="px-3 py-2">Penanggung Jawab</th>
                       <th className="px-3 py-2 text-right">NPP (%)</th>
                     </tr>
                   </thead>
@@ -457,23 +737,12 @@ export function ImporCSVSkeleton() {
                       <tr key={i}>
                         <td className="px-3 py-2 font-semibold text-brand-primary">{r.no_unit}</td>
                         <td className="px-3 py-2">{r.nama_anggota}</td>
+                        <td className="px-3 py-2 font-medium">{r.penanggung_jawab || r.nama_anggota}</td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums">{r.npp}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-
-            {/* Daftar Baris Gagal */}
-            {failedRows.length > 0 && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs space-y-1">
-                <div className="font-bold text-status-danger">Alasan Penolakan Baris:</div>
-                {failedRows.slice(0, 5).map((f, i) => (
-                  <div key={i} className="text-content-muted">
-                    Baris {f.rowNum}: {f.reason} ({f.data.no_unit || 'Tanpa Unit'})
-                  </div>
-                ))}
               </div>
             )}
 

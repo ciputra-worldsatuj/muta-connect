@@ -15,7 +15,13 @@ function getLocalDB() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEED));
       return JSON.parse(JSON.stringify(INITIAL_SEED));
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Pastikan struktur members memiliki penanggung_jawab
+    if (parsed.members && parsed.members.length > 0 && !parsed.members[0].penanggung_jawab) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEED));
+      return JSON.parse(JSON.stringify(INITIAL_SEED));
+    }
+    return parsed;
   } catch (e) {
     return JSON.parse(JSON.stringify(INITIAL_SEED));
   }
@@ -115,6 +121,7 @@ function simulateLocalAction(action, payload) {
           tenantId: tenantId || 't-cw1',
           no_unit: noUnit,
           nama_pemilik: nama,
+          penanggung_jawab: r.penanggung_jawab || nama,
           npp: npp,
           email: r.email || '',
           no_hp: r.no_hp || ''
@@ -127,15 +134,23 @@ function simulateLocalAction(action, payload) {
     }
 
     case 'saveMember': {
-      const { id, tenantId, no_unit, nama_pemilik, npp, email, no_hp } = payload;
+      const { id, tenantId, no_unit, nama_pemilik, penanggung_jawab, npp, email, no_hp } = payload;
       if (!no_unit || !nama_pemilik || !npp || npp <= 0) {
-        throw new Error('Nomor unit, nama anggota, dan bobot NPP wajib diisi.');
+        throw new Error('Kode unit, nama anggota, dan bobot NPP wajib diisi.');
       }
 
       if (id) {
         const idx = db.members.findIndex(m => m.id === id);
         if (idx !== -1) {
-          db.members[idx] = { ...db.members[idx], no_unit, nama_pemilik, npp: parseFloat(npp), email, no_hp };
+          db.members[idx] = {
+            ...db.members[idx],
+            no_unit,
+            nama_pemilik,
+            penanggung_jawab: penanggung_jawab || nama_pemilik,
+            npp: parseFloat(npp),
+            email: email || '',
+            no_hp: no_hp || ''
+          };
         }
       } else {
         db.members.push({
@@ -143,11 +158,20 @@ function simulateLocalAction(action, payload) {
           tenantId: tenantId || 't-cw1',
           no_unit,
           nama_pemilik,
+          penanggung_jawab: penanggung_jawab || nama_pemilik,
           npp: parseFloat(npp),
           email: email || '',
           no_hp: no_hp || ''
         });
       }
+      saveLocalDB(db);
+      return { success: true };
+    }
+
+    case 'deleteMember': {
+      const { id } = payload;
+      db.members = db.members.filter(m => m.id !== id);
+      db.invitations = db.invitations.filter(i => i.memberId !== id);
       saveLocalDB(db);
       return { success: true };
     }
@@ -199,17 +223,25 @@ function simulateLocalAction(action, payload) {
       if (id) {
         const idx = db.agendas.findIndex(a => a.id === id);
         if (idx !== -1) {
-          db.agendas[idx] = { ...db.agendas[idx], urutan: parseInt(urutan), judul, deskripsi };
+          db.agendas[idx] = { ...db.agendas[idx], urutan: parseInt(urutan) || db.agendas[idx].urutan, judul, deskripsi };
         }
       } else {
+        const newUrutan = parseInt(urutan) || (db.agendas.filter(a => a.sessionId === sessionId).length + 1);
         db.agendas.push({
           id: 'ag-' + Date.now(),
           sessionId,
-          urutan: parseInt(urutan) || db.agendas.length + 1,
+          urutan: newUrutan,
           judul,
-          deskripsi
+          deskripsi: deskripsi || ''
         });
       }
+      saveLocalDB(db);
+      return { success: true };
+    }
+
+    case 'deleteQuestion': {
+      const { id } = payload;
+      db.questions = db.questions.filter(q => q.id !== id);
       saveLocalDB(db);
       return { success: true };
     }
@@ -225,6 +257,7 @@ function simulateLocalAction(action, payload) {
         if (idx !== -1) {
           db.questions[idx] = {
             ...db.questions[idx],
+            agendaId: agendaId || db.questions[idx].agendaId,
             tipeSoal,
             pertanyaan,
             pilihan,
@@ -259,6 +292,7 @@ function simulateLocalAction(action, payload) {
         return {
           ...inv,
           nama_pemilik: member.nama_pemilik,
+          penanggung_jawab: member.penanggung_jawab || member.nama_pemilik,
           no_unit: member.no_unit,
           npp: member.npp,
           email: member.email,
@@ -315,6 +349,11 @@ function simulateLocalAction(action, payload) {
     }
 
     // --- UF-06 & UF-07: Check-in ---
+    case 'getAttendances': {
+      const sessionId = payload.sessionId || 's-2026-muta';
+      return db.attendances.filter(a => a.sessionId === sessionId && a.status === 'HADIR');
+    }
+
     case 'checkinQR': {
       const { uid, sessionId, petugasId } = payload;
       const inv = db.invitations.find(i => i.sessionId === sessionId && i.uid_qr === uid);
@@ -359,6 +398,7 @@ function simulateLocalAction(action, payload) {
       const isLate = session && session.status === 'Berjalan';
       const labelWaktu = isLate ? 'Late' : 'On time';
 
+      // 1. Tambah record attendance
       db.attendances.push({
         id: 'att-' + Date.now(),
         sessionId,
@@ -370,20 +410,39 @@ function simulateLocalAction(action, payload) {
         petugasId: petugasId || 'admin'
       });
 
+      // 2. SINKRONISASI STATUS INVITATION: ubah status_qr menjadi Terpakai
+      const inv = db.invitations.find(i => i.sessionId === sessionId && i.memberId === memberId);
+      if (inv) {
+        inv.status_qr = 'Terpakai';
+      }
+
       const member = db.members.find(m => m.id === memberId) || {};
       saveLocalDB(db);
       return { success: true, member };
     }
 
     case 'cancelCheckin': {
-      const { attendanceId, alasan } = payload;
+      const { attendanceId, memberId, sessionId, alasan } = payload;
       if (!alasan) throw new Error('Alasan pembatalan kehadiran wajib diisi.');
-      const att = db.attendances.find(a => a.id === attendanceId);
+      
+      // Cari attendance baik via id atau via memberId & sessionId
+      const att = db.attendances.find(a => 
+        (attendanceId && a.id === attendanceId) || 
+        (memberId && a.sessionId === sessionId && a.memberId === memberId && a.status === 'HADIR')
+      );
+
+      const targetMemberId = memberId || (att ? att.memberId : null);
+      const targetSessionId = sessionId || (att ? att.sessionId : 's-2026-muta');
+
       if (att) {
         att.status = 'DIBATALKAN';
-        const inv = db.invitations.find(i => i.sessionId === att.sessionId && i.memberId === att.memberId);
+      }
+
+      if (targetMemberId && targetSessionId) {
+        const inv = db.invitations.find(i => i.sessionId === targetSessionId && i.memberId === targetMemberId);
         if (inv) inv.status_qr = 'Aktif';
       }
+
       saveLocalDB(db);
       return { success: true };
     }

@@ -17,12 +17,9 @@ import {
 } from 'lucide-react';
 
 /**
- * UF-06 & UF-07: Check-in Scan QR dan Manual Check-in Meja Registrasi
- * Aturan Bisnis & Validasi:
- * - BR-05: QR berlaku satu kali pakai, UID acak tanpa data pribadi
- * - BR-10: Check-in sebelum Mulai Sidang berlabel On time, sesudahnya Late
- * - UF-06: Umpan balik visual/audio instan < 1 detik
- * - UF-07: Pembatalan check-in mensyaratkan alasan wajib dan mengembalikan status QR
+ * UF-06 & UF-07: Check-in Scan QR dan Manual Check-in Meja Registrasi (Revisi 4)
+ * - Perbaikan: Status check-in manual langsung berubah menjadi HADIR secara instan
+ * - Sinkronisasi otomatis antara tabel attendance dan status_qr undangan
  */
 
 // --- S-13: SCAN QR CHECK-IN ---
@@ -37,7 +34,6 @@ export function ScanQRSkeleton() {
   const [isScanning, setIsScanning] = useState(false);
   const html5QrCodeRef = useRef(null);
 
-  // Daftar UID simulasi untuk kemudahan pengujian meja registrasi
   const quickTestUIDs = [
     { label: 'Hendra (A-101)', uid: 'MUTA-QR-HENDRA' },
     { label: 'Dewi (A-102)', uid: 'MUTA-QR-DEWI' },
@@ -57,9 +53,7 @@ export function ScanQRSkeleton() {
         petugasId: currentUser.name
       });
 
-      // Umpan balik audio sederhana (beeps)
       playSuccessTone();
-
       setScanResult(res.member);
       setRecentCheckins(prev => [
         { ...res.member, time: new Date().toLocaleTimeString('id-ID') },
@@ -78,7 +72,7 @@ export function ScanQRSkeleton() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada tinggi sukses
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -93,7 +87,7 @@ export function ScanQRSkeleton() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, ctx.currentTime); // Nada rendah error
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -140,7 +134,6 @@ export function ScanQRSkeleton() {
       roles={['petugas']}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        {/* Kolom Pemindai Kamera & Input Manual */}
         <div className="bg-surface-card rounded-2xl border border-surface-border p-5 shadow-sm space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-surface-border">
             <span className="text-xs font-bold text-content-main uppercase flex items-center gap-1.5">
@@ -150,7 +143,6 @@ export function ScanQRSkeleton() {
             <span className="text-[11px] text-content-muted">Target respon &lt; 1 detik</span>
           </div>
 
-          {/* Area Kamera HTML5 / Kotak Simulasi */}
           <div className="relative aspect-video sm:aspect-square bg-slate-900 rounded-xl overflow-hidden flex flex-col items-center justify-center p-4">
             <div id="reader" className="w-full h-full" />
             {!isScanning && (
@@ -179,7 +171,6 @@ export function ScanQRSkeleton() {
             )}
           </div>
 
-          {/* Input Manual UID (Sangat berguna untuk fallback / testing) */}
           <div className="pt-2 border-t border-surface-border space-y-2">
             <label className="block text-[11px] font-bold text-content-muted uppercase">
               Atau Input UID QR Manual (Fallback):
@@ -201,7 +192,6 @@ export function ScanQRSkeleton() {
               </button>
             </div>
 
-            {/* Tombol Cepat Pengujian */}
             <div className="pt-2 flex flex-wrap gap-1.5">
               <span className="text-[10px] text-content-muted w-full">Tes Cepat UID:</span>
               {quickTestUIDs.map(t => (
@@ -218,9 +208,7 @@ export function ScanQRSkeleton() {
           </div>
         </div>
 
-        {/* Kolom Hasil Check-in & Riwayat Terakhir */}
         <div className="space-y-4">
-          {/* Kartu Umpan Balik Sukses */}
           {scanResult && (
             <div className="p-5 bg-green-50 border-2 border-status-success rounded-2xl shadow-sm text-center space-y-2 animate-in fade-in zoom-in duration-200">
               <CheckCircle2 className="w-12 h-12 text-status-success mx-auto" />
@@ -244,7 +232,6 @@ export function ScanQRSkeleton() {
             </div>
           )}
 
-          {/* Kartu Peringatan / Penolakan QR */}
           {errorMessage && (
             <div className="p-5 bg-red-50 border-2 border-status-danger rounded-2xl shadow-sm text-center space-y-2 animate-in fade-in duration-200">
               <XCircle className="w-12 h-12 text-status-danger mx-auto" />
@@ -260,7 +247,6 @@ export function ScanQRSkeleton() {
             </div>
           )}
 
-          {/* 5 Check-in Terakhir */}
           <div className="bg-surface-card rounded-2xl border border-surface-border p-5 shadow-sm space-y-3">
             <h4 className="text-xs font-bold text-content-muted uppercase tracking-wider">
               Check-in Terakhir Sesi Ini
@@ -293,16 +279,17 @@ export function ScanQRSkeleton() {
   );
 }
 
-// --- S-14: CHECK-IN MANUAL & BATAL CHECK-IN ---
+// --- S-14: CHECK-IN MANUAL & BATAL CHECK-IN DENGAN UPDATE STATUS INSTAN (REVISI 4) ---
 export function CheckInManualSkeleton() {
   const { currentSession, currentUser, currentTenant } = useApp();
   const sessionId = currentSession?.id || 's-2026-muta';
 
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
+  const [attendances, setAttendances] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [cancelDialog, setCancelDialog] = useState(null); // { attendanceId, memberName }
+  const [cancelDialog, setCancelDialog] = useState(null); // { memberId, memberName }
   const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
@@ -312,12 +299,14 @@ export function CheckInManualSkeleton() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [mList, invList] = await Promise.all([
+      const [mList, invList, attList] = await Promise.all([
         ApiService.request('getMembers', { tenantId: currentTenant?.id || 't-cw1' }),
-        ApiService.request('getInvitations', { sessionId })
+        ApiService.request('getInvitations', { sessionId }),
+        ApiService.request('getAttendances', { sessionId })
       ]);
       setMembers(mList);
       setInvitations(invList);
+      setAttendances(attList || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -325,42 +314,59 @@ export function CheckInManualSkeleton() {
     }
   };
 
+  // Check-in Manual dengan Perubahan State Instan
   const handleManualCheckin = async (memberId) => {
+    // 1. Optimistic update: langsung ubah status di tampilan
+    setAttendances(prev => [...prev, { memberId, sessionId, status: 'HADIR' }]);
+    setInvitations(prev => prev.map(inv => inv.memberId === memberId ? { ...inv, status_qr: 'Terpakai' } : inv));
+
     try {
       await ApiService.request('checkinManual', {
         memberId,
         sessionId,
         petugasId: currentUser.name
       });
+      // Sinkronisasi penuh dengan server
       loadData();
     } catch (err) {
       alert('Gagal check-in: ' + err.message);
+      loadData();
     }
   };
 
+  // Pembatalan Check-in dengan Perubahan State Instan
   const handleConfirmCancel = async () => {
     if (!cancelReason) {
       alert('Alasan pembatalan kehadiran wajib diisi (UF-07).');
       return;
     }
 
+    const targetMemberId = cancelDialog.memberId;
+
+    // 1. Optimistic update: langsung ubah status kembali ke BELUM HADIR
+    setAttendances(prev => prev.filter(a => a.memberId !== targetMemberId));
+    setInvitations(prev => prev.map(inv => inv.memberId === targetMemberId ? { ...inv, status_qr: 'Aktif' } : inv));
+    setCancelDialog(null);
+
     try {
       await ApiService.request('cancelCheckin', {
-        attendanceId: cancelDialog.attendanceId,
+        memberId: targetMemberId,
+        sessionId,
         alasan: cancelReason,
         userId: currentUser.name
       });
-      setCancelDialog(null);
       setCancelReason('');
       loadData();
     } catch (err) {
       alert('Gagal batalkan: ' + err.message);
+      loadData();
     }
   };
 
   const filteredMembers = members.filter(m =>
     (m.no_unit || '').toLowerCase().includes(search.toLowerCase()) ||
-    (m.nama_pemilik || '').toLowerCase().includes(search.toLowerCase())
+    (m.nama_pemilik || '').toLowerCase().includes(search.toLowerCase()) ||
+    (m.penanggung_jawab || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -378,7 +384,7 @@ export function CheckInManualSkeleton() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nomor unit (misal: A-101) atau nama..."
+            placeholder="Cari kode unit (misal: A-101) atau nama..."
             className="w-full pl-9 pr-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
           />
         </div>
@@ -388,27 +394,33 @@ export function CheckInManualSkeleton() {
           <table className="w-full text-left text-xs">
             <thead className="bg-surface-bg border-b border-surface-border text-content-muted font-bold uppercase">
               <tr>
-                <th className="px-4 py-3">No. Unit</th>
-                <th className="px-4 py-3">Nama Pemilik</th>
-                <th className="px-4 py-3 text-right">NPP (%)</th>
-                <th className="px-4 py-3">Status QR / Kehadiran</th>
+                <th className="px-4 py-3">Kode Unit</th>
+                <th className="px-4 py-3">Nama Anggota</th>
+                <th className="px-4 py-3">Penanggung Jawab</th>
+                <th className="px-4 py-3 text-right">Bobot NPP</th>
+                <th className="px-4 py-3">Status Kehadiran</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
               {filteredMembers.map(m => {
                 const inv = invitations.find(i => i.memberId === m.id || i.member_id === m.id);
-                const isCheckedIn = inv && inv.status_qr === 'Terpakai';
+                // Cek kehadiran secara menyeluruh baik via attendances maupun via status_qr undangan
+                const isCheckedIn = attendances.some(a => a.memberId === m.id && a.status === 'HADIR') || (inv && inv.status_qr === 'Terpakai');
 
                 return (
-                  <tr key={m.id} className="hover:bg-slate-50">
+                  <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-bold text-brand-primary">{m.no_unit}</td>
                     <td className="px-4 py-3 font-medium text-content-main">{m.nama_pemilik}</td>
+                    <td className="px-4 py-3 text-content-main font-semibold">{m.penanggung_jawab || m.nama_pemilik}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{parseFloat(m.npp).toFixed(4)}%</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        isCheckedIn ? 'bg-green-100 text-status-success' : 'bg-slate-100 text-content-muted'
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                        isCheckedIn 
+                          ? 'bg-green-100 text-status-success border border-green-200' 
+                          : 'bg-slate-100 text-content-muted border border-surface-border'
                       }`}>
+                        {isCheckedIn && <span className="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse" />}
                         {isCheckedIn ? 'HADIR' : 'BELUM HADIR'}
                       </span>
                     </td>
@@ -417,17 +429,19 @@ export function CheckInManualSkeleton() {
                         <button
                           type="button"
                           onClick={() => handleManualCheckin(m.id)}
-                          className="px-3 py-1 bg-brand-primary text-white rounded font-semibold text-[11px] hover:bg-brand-primary-hover shadow-sm"
+                          className="px-3.5 py-1.5 bg-brand-primary text-white rounded-lg font-semibold text-xs hover:bg-brand-primary-hover shadow-sm transition-all flex items-center gap-1 ml-auto"
                         >
-                          Check-in Manual
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>Check-in Manual</span>
                         </button>
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setCancelDialog({ attendanceId: 'att-' + m.id, memberName: m.nama_pemilik })}
-                          className="px-2.5 py-1 border border-status-danger text-status-danger rounded font-semibold text-[11px] hover:bg-red-50"
+                          onClick={() => setCancelDialog({ memberId: m.id, memberName: m.nama_pemilik })}
+                          className="px-3 py-1.5 border border-status-danger text-status-danger rounded-lg font-semibold text-xs hover:bg-red-50 transition-colors ml-auto flex items-center gap-1"
                         >
-                          Batalkan
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Batalkan</span>
                         </button>
                       )}
                     </td>
@@ -447,7 +461,7 @@ export function CheckInManualSkeleton() {
                 Batalkan Kehadiran Peserta
               </h3>
               <p className="text-xs text-content-muted">
-                Anda akan membatalkan status HADIR untuk <strong>{cancelDialog.memberName}</strong>. QR Code peserta akan diaktifkan kembali.
+                Anda akan membatalkan status HADIR untuk <strong>{cancelDialog.memberName}</strong>. Status peserta akan kembali menjadi BELUM HADIR dan QR Code akan diaktifkan kembali.
               </p>
 
               <div>

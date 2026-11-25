@@ -17,7 +17,10 @@ import {
   AlertCircle,
   FileCheck,
   Ban,
-  Upload
+  Upload,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 /**
@@ -97,17 +100,14 @@ export function DaftarSidangSkeleton() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-surface-border flex flex-wrap gap-2 text-xs">
-                  <a href={`#/sidang/${s.id}/agenda`} className="font-semibold text-brand-primary hover:underline">
-                    Agenda & Soal &rarr;
+                {/* Sesuai Revisi 1: Hanya menu Agenda & Soal dan Undangan & QR */}
+                <div className="pt-3 border-t border-surface-border flex flex-wrap gap-3 text-xs">
+                  <a href={`#/sidang/${s.id}/agenda`} className="font-semibold text-brand-primary hover:underline flex items-center gap-1">
+                    <span>Agenda & Soal</span> &rarr;
                   </a>
                   <span className="text-surface-border">•</span>
-                  <a href={`#/sidang/${s.id}/undangan`} className="font-semibold text-brand-accent hover:underline">
-                    Undangan & QR &rarr;
-                  </a>
-                  <span className="text-surface-border">•</span>
-                  <a href={`#/sidang/${s.id}/draft`} className="font-semibold text-content-muted hover:underline">
-                    Draft WA/Email &rarr;
+                  <a href={`#/sidang/${s.id}/undangan`} className="font-semibold text-brand-accent hover:underline flex items-center gap-1">
+                    <span>Undangan & QR</span> &rarr;
                   </a>
                 </div>
               </div>
@@ -255,15 +255,22 @@ export function FormSidangSkeleton() {
   );
 }
 
-// --- S-09: AGENDA & SOAL VOTING ---
+// --- S-09: AGENDA & SOAL VOTING (DENGAN TAMBAH MATA ACARA & EDIT DRAFT SOAL) ---
 export function AgendaSoalSkeleton({ params }) {
   const sessionId = params?.id || 's-2026-muta';
   const [agendas, setAgendas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
-  const [selectedAgendaId, setSelectedAgendaId] = useState('');
 
-  // Form soal baru
+  // Modal Tambah Agenda (Mata Acara)
+  const [showAddAgenda, setShowAddAgenda] = useState(false);
+  const [agendaJudul, setAgendaJudul] = useState('');
+  const [agendaDeskripsi, setAgendaDeskripsi] = useState('');
+  const [agendaUrutan, setAgendaUrutan] = useState('');
+
+  // Modal Tambah / Edit Soal
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
+  const [selectedAgendaId, setSelectedAgendaId] = useState('');
   const [tipeSoal, setTipeSoal] = useState('setuju_tidak_abstain');
   const [pertanyaan, setPertanyaan] = useState('');
   const [pilihanText, setPilihanText] = useState('Setuju\nTidak Setuju\nAbstain');
@@ -278,7 +285,7 @@ export function AgendaSoalSkeleton({ params }) {
     try {
       const data = await ApiService.request('getAgendas', { sessionId });
       setAgendas(data);
-      if (data.length > 0) setSelectedAgendaId(data[0].id);
+      if (data.length > 0 && !selectedAgendaId) setSelectedAgendaId(data[0].id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -286,17 +293,69 @@ export function AgendaSoalSkeleton({ params }) {
     }
   };
 
+  // Simpan Agenda Baru
+  const handleSaveAgenda = async (e) => {
+    e.preventDefault();
+    if (!agendaJudul.trim()) {
+      alert('Judul mata acara agenda wajib diisi.');
+      return;
+    }
+
+    try {
+      await ApiService.request('saveAgenda', {
+        sessionId,
+        judul: agendaJudul.trim(),
+        deskripsi: agendaDeskripsi.trim(),
+        urutan: agendaUrutan ? parseInt(agendaUrutan) : agendas.length + 1
+      });
+      setShowAddAgenda(false);
+      setAgendaJudul('');
+      setAgendaDeskripsi('');
+      setAgendaUrutan('');
+      loadAgendas();
+    } catch (err) {
+      alert('Gagal simpan agenda: ' + err.message);
+    }
+  };
+
+  // Buka Form Buat Soal Baru
+  const handleOpenAddQuestion = (agendaId = '') => {
+    setEditingQuestionId(null);
+    setSelectedAgendaId(agendaId || (agendas.length > 0 ? agendas[0].id : ''));
+    setTipeSoal('setuju_tidak_abstain');
+    setPertanyaan('');
+    setPilihanText('Setuju\nTidak Setuju\nAbstain');
+    setDurasiDetik('60');
+    setShowQuestionModal(true);
+  };
+
+  // Buka Form Edit Soal Draft
+  const handleOpenEditQuestion = (q, agendaId) => {
+    setEditingQuestionId(q.id);
+    setSelectedAgendaId(agendaId);
+    setTipeSoal(q.tipeSoal || 'setuju_tidak_abstain');
+    setPertanyaan(q.pertanyaan || '');
+    setPilihanText((q.pilihan || []).join('\n'));
+    setDurasiDetik(String(q.durasiDetik || 60));
+    setShowQuestionModal(true);
+  };
+
   const handleTipeChange = (tipe) => {
     setTipeSoal(tipe);
     if (tipe === 'setuju_tidak_abstain') {
       setPilihanText('Setuju\nTidak Setuju\nAbstain');
     } else {
-      setPilihanText('Kandidat A\nKandidat B\nAbstain');
+      setPilihanText('Opsi A\nOpsi B\nAbstain');
     }
   };
 
   const handleSaveQuestion = async (e) => {
     e.preventDefault();
+    if (!selectedAgendaId) {
+      alert('Pilih salah satu mata acara agenda terlebih dahulu.');
+      return;
+    }
+
     const pilihanArray = pilihanText.split('\n').map(p => p.trim()).filter(Boolean);
     if (pilihanArray.length < 2) {
       alert('Minimal harus ada 2 pilihan jawaban (UF-03).');
@@ -305,19 +364,31 @@ export function AgendaSoalSkeleton({ params }) {
 
     try {
       await ApiService.request('saveQuestion', {
+        id: editingQuestionId,
         agendaId: selectedAgendaId,
         sessionId,
         tipeSoal,
-        pertanyaan,
+        pertanyaan: pertanyaan.trim(),
         pilihan: pilihanArray,
         maksPilihan: 1,
         durasiDetik: parseInt(durasiDetik) || 60
       });
-      setShowAddQuestion(false);
+      setShowQuestionModal(false);
+      setEditingQuestionId(null);
       setPertanyaan('');
       loadAgendas();
     } catch (err) {
       alert('Gagal simpan soal: ' + err.message);
+    }
+  };
+
+  const handleDeleteQuestion = async (qId) => {
+    if (!window.confirm('Yakin ingin menghapus soal ini?')) return;
+    try {
+      await ApiService.request('deleteQuestion', { id: qId });
+      loadAgendas();
+    } catch (err) {
+      alert('Gagal hapus soal: ' + err.message);
     }
   };
 
@@ -329,22 +400,96 @@ export function AgendaSoalSkeleton({ params }) {
       roles={['admin', 'panitia']}
     >
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        {/* Tombol Aksi Tambah Agenda & Tambah Soal */}
+        <div className="flex flex-wrap gap-2 justify-between items-center pb-2 border-b border-surface-border">
           <span className="text-xs font-bold text-content-muted uppercase">Daftar Agenda & Pertanyaan</span>
-          <button
-            type="button"
-            onClick={() => setShowAddQuestion(!showAddQuestion)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Tambah Soal Voting</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddAgenda(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-brand-primary text-xs font-semibold hover:bg-blue-50 transition-colors shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Tambah Mata Acara Agenda</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenAddQuestion()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Tambah Soal Voting</span>
+            </button>
+          </div>
         </div>
 
-        {/* Modal Form Tambah Soal */}
-        {showAddQuestion && (
-          <div className="p-5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-4">
-            <h3 className="text-sm font-bold text-brand-primary">Buat Pertanyaan Voting Baru (UF-03)</h3>
+        {/* Modal Form Tambah Agenda */}
+        {showAddAgenda && (
+          <div className="p-5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-4 animate-in fade-in duration-150">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-brand-primary">Tambah Mata Acara Agenda Baru</h3>
+              <button type="button" onClick={() => setShowAddAgenda(false)} className="text-content-muted hover:text-content-main">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveAgenda} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-[11px] font-semibold text-content-main mb-1">Nomor Urutan</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={agendaUrutan}
+                    onChange={(e) => setAgendaUrutan(e.target.value)}
+                    placeholder={`Otomatis (${agendas.length + 1})`}
+                    className="w-full px-3 py-2 bg-surface-card border border-surface-border rounded-lg text-xs"
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-semibold text-content-main mb-1">Judul Mata Acara Agenda *</label>
+                  <input
+                    type="text"
+                    required
+                    value={agendaJudul}
+                    onChange={(e) => setAgendaJudul(e.target.value)}
+                    placeholder="Contoh: Pembahasan dan Pengesahan Rencana Kerja Tahun 2027"
+                    className="w-full px-3 py-2 bg-surface-card border border-surface-border rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-content-main mb-1">Deskripsi / Keterangan</label>
+                <textarea
+                  rows="2"
+                  value={agendaDeskripsi}
+                  onChange={(e) => setAgendaDeskripsi(e.target.value)}
+                  placeholder="Keterangan singkat materi mata acara sidang..."
+                  className="w-full px-3 py-2 bg-surface-card border border-surface-border rounded-lg text-xs"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm">
+                  Simpan Agenda
+                </button>
+                <button type="button" onClick={() => setShowAddAgenda(false)} className="px-4 py-2 border border-surface-border rounded-lg text-xs font-semibold text-content-muted hover:bg-surface-bg">
+                  Batal
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Modal Form Tambah / Edit Soal */}
+        {showQuestionModal && (
+          <div className="p-5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-4 animate-in fade-in duration-150">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-bold text-brand-primary">
+                {editingQuestionId ? 'Edit Soal Voting (Status Draft)' : 'Buat Pertanyaan Voting Baru'}
+              </h3>
+              <button type="button" onClick={() => setShowQuestionModal(false)} className="text-content-muted hover:text-content-main">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <form onSubmit={handleSaveQuestion} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -379,7 +524,7 @@ export function AgendaSoalSkeleton({ params }) {
                     required
                     value={durasiDetik}
                     onChange={(e) => setDurasiDetik(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-card border border-surface-border rounded-lg text-xs"
+                    className="w-full px-3 py-2 bg-surface-card border border-surface-border rounded-lg text-xs font-mono"
                   />
                 </div>
               </div>
@@ -408,10 +553,10 @@ export function AgendaSoalSkeleton({ params }) {
               </div>
 
               <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover">
-                  Simpan Soal Voting
+                <button type="submit" className="px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm">
+                  {editingQuestionId ? 'Simpan Perubahan Soal' : 'Simpan Soal Voting'}
                 </button>
-                <button type="button" onClick={() => setShowAddQuestion(false)} className="px-4 py-2 border border-surface-border rounded-lg text-xs font-semibold text-content-muted">
+                <button type="button" onClick={() => setShowQuestionModal(false)} className="px-4 py-2 border border-surface-border rounded-lg text-xs font-semibold text-content-muted hover:bg-surface-bg">
                   Batal
                 </button>
               </div>
@@ -421,54 +566,99 @@ export function AgendaSoalSkeleton({ params }) {
 
         {/* List Agenda & Soal */}
         <div className="space-y-4">
-          {agendas.map((agenda) => (
-            <div key={agenda.id} className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">
-                  {agenda.urutan}
-                </span>
-                <h3 className="font-bold text-sm text-content-main">{agenda.judul}</h3>
-              </div>
-              <p className="text-xs text-content-muted pl-8">{agenda.deskripsi}</p>
+          {agendas.length === 0 ? (
+            <div className="p-8 bg-surface-card rounded-xl border border-surface-border text-center text-xs text-content-muted">
+              Belum ada mata acara agenda. Klik tombol <strong>+ Tambah Mata Acara Agenda</strong> di atas untuk memulai.
+            </div>
+          ) : (
+            agendas.map((agenda) => (
+              <div key={agenda.id} className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">
+                      {agenda.urutan}
+                    </span>
+                    <h3 className="font-bold text-sm text-content-main">{agenda.judul}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddQuestion(agenda.id)}
+                    className="text-[11px] font-semibold text-brand-accent hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Tambah Soal</span>
+                  </button>
+                </div>
+                {agenda.deskripsi && (
+                  <p className="text-xs text-content-muted pl-8">{agenda.deskripsi}</p>
+                )}
 
-              {/* Soal Di Bawah Agenda */}
-              <div className="pl-8 space-y-2 pt-2">
-                {agenda.questions && agenda.questions.length > 0 ? (
-                  agenda.questions.map((q) => (
-                    <div key={q.id} className="p-3 bg-surface-bg rounded-lg border border-surface-border flex items-center justify-between text-xs">
-                      <div>
-                        <div className="font-semibold text-content-main">{q.pertanyaan}</div>
-                        <div className="text-[11px] text-content-muted mt-0.5">
-                          Tipe: <span className="font-mono">{q.tipeSoal}</span> • Durasi: {q.durasiDetik}s • {q.pilihan?.length} Pilihan
+                {/* Soal Di Bawah Agenda */}
+                <div className="pl-8 space-y-2 pt-2">
+                  {agenda.questions && agenda.questions.length > 0 ? (
+                    agenda.questions.map((q) => (
+                      <div key={q.id} className="p-3 bg-surface-bg rounded-lg border border-surface-border flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <div className="font-semibold text-content-main">{q.pertanyaan}</div>
+                          <div className="text-[11px] text-content-muted">
+                            Tipe: <span className="font-mono">{q.tipeSoal}</span> • Durasi: {q.durasiDetik}s • Pilihan: {(q.pilihan || []).join(', ')}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            q.status === 'Dibuka' ? 'bg-green-100 text-status-success' :
+                            q.status === 'Ditutup' ? 'bg-slate-200 text-content-muted' : 'bg-amber-100 text-status-warning'
+                          }`}>
+                            {q.status}
+                          </span>
+
+                          {/* Fitur Edit & Hapus Soal yang Masih Draft (Revisi 2) */}
+                          {q.status === 'Draft' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditQuestion(q, agenda.id)}
+                                className="p-1.5 rounded text-brand-primary hover:bg-blue-50 border border-surface-border transition-colors"
+                                title="Edit Soal Draft"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteQuestion(q.id)}
+                                className="p-1.5 rounded text-status-danger hover:bg-red-50 border border-surface-border transition-colors"
+                                title="Hapus Soal Draft"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        q.status === 'Dibuka' ? 'bg-green-100 text-status-success' : 'bg-slate-200 text-content-muted'
-                      }`}>
-                        {q.status}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-content-muted italic">Belum ada soal voting untuk agenda ini.</div>
-                )}
+                    ))
+                  ) : (
+                    <div className="text-xs text-content-muted italic">Belum ada soal voting untuk agenda ini.</div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </SkeletonPage>
   );
 }
 
-// --- S-10: UNDANGAN & QR CODE ---
+// --- S-10: UNDANGAN & QR CODE DENGAN AKSI LIHAT QR - DRAFT WA - DRAFT EMAIL (REVISI 1) ---
 export function UndanganQRSkeleton({ params }) {
   const sessionId = params?.id || 's-2026-muta';
-  const { currentTenant } = useApp();
+  const { currentTenant, currentSession } = useApp();
   const [invitations, setInvitations] = useState([]);
   const [selectedQR, setSelectedQR] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState('');
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState(null); // { id, type: 'wa'|'email' }
 
   useEffect(() => {
     loadInvitations();
@@ -508,17 +698,53 @@ export function UndanganQRSkeleton({ params }) {
     }
   };
 
+  // Salin Text Draft WhatsApp per Undangan Anggota
+  const handleCopyDraftWA = (inv) => {
+    const text = `*UNDANGAN RESMI MUSYAWARAH UMUM TAHUNAN ANGGOTA (MUTA)*\n\n` +
+      `Kepada Yth. Bapak/Ibu *${inv.nama_pemilik}*\n` +
+      `Unit: *${inv.no_unit}* | Bobot NPP: *${parseFloat(inv.npp).toFixed(4)}%*\n\n` +
+      `Pengurus ${currentTenant?.name || 'PPPSRS'} mengundang kehadiran Anda pada sidang ${currentSession?.title || 'MUTA'} yang diselenggarakan pada:\n` +
+      `🗓 Tanggal: ${currentSession?.tanggal || '28 November 2026'}\n` +
+      `📍 Lokasi: ${currentSession?.lokasi || 'Ballroom Lt. 5'}\n` +
+      `🔑 Kode Undangan QR: *${inv.uid_qr}*\n\n` +
+      `Tautan Bilik Suara: https://muta-connect.github.io/#/vote/${currentSession?.kode_publik || 'CW2026'}\n\n` +
+      `Tunjukkan pesan ini di meja registrasi.\n*Panitia MUTA Connect*`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedId({ id: inv.id, type: 'wa' });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Salin Text Draft Email per Undangan Anggota
+  const handleCopyDraftEmail = (inv) => {
+    const text = `Subjek: [UNDANGAN RESMI] ${currentSession?.title || 'MUTA'} - Unit ${inv.no_unit} (${inv.nama_pemilik})\n\n` +
+      `Kepada Yth. Bapak/Ibu ${inv.nama_pemilik},\n` +
+      `Pemilik Unit: ${inv.no_unit} (NPP: ${parseFloat(inv.npp).toFixed(4)}%)\n\n` +
+      `Dengan hormat,\n` +
+      `Pengurus ${currentTenant?.name || 'PPPSRS'} mengundang Bapak/Ibu untuk menghadiri musyawarah umum yang diselenggarakan pada:\n\n` +
+      `Tanggal: ${currentSession?.tanggal || '28 November 2026'}\n` +
+      `Lokasi: ${currentSession?.lokasi || 'Ballroom Lt. 5'}\n` +
+      `UID Verifikasi QR: ${inv.uid_qr}\n` +
+      `Tautan Bilik Suara Mandiri: https://muta-connect.github.io/#/vote/${currentSession?.kode_publik || 'CW2026'}\n\n` +
+      `Hormat kami,\n` +
+      `Panitia Pelaksana Sidang`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedId({ id: inv.id, type: 'email' });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <SkeletonPage
       screenId="S-10"
       title="Undangan & QR Code Peserta"
-      subtitle={`Daftar QR Code unik 1x pakai untuk check-in sidang ${sessionId}`}
+      subtitle={`Daftar QR Code unik 1x pakai dan salin draft undangan instan untuk sidang ${sessionId}`}
       roles={['admin']}
     >
       <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-content-muted uppercase">
-            Total {invitations.length} Undangan Dihasilkan
+            Total {invitations.length} Undangan Terdaftar
           </span>
           <button
             type="button"
@@ -537,7 +763,7 @@ export function UndanganQRSkeleton({ params }) {
                 <th className="px-4 py-3">Nama Anggota</th>
                 <th className="px-4 py-3">UID QR Code</th>
                 <th className="px-4 py-3">Status QR</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
+                <th className="px-4 py-3 text-right">Aksi Undangan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
@@ -553,14 +779,47 @@ export function UndanganQRSkeleton({ params }) {
                       {inv.status_qr}
                     </span>
                   </td>
+
+                  {/* Sesuai Revisi 1: Tombol Aksi "Lihat QR - Draft WA - Draft Email" */}
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleShowQR(inv)}
-                      className="px-2.5 py-1 rounded bg-surface-bg border border-surface-border hover:bg-blue-50 text-[11px] font-semibold text-brand-primary"
-                    >
-                      Lihat QR
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleShowQR(inv)}
+                        className="px-2.5 py-1 rounded bg-surface-bg border border-surface-border hover:bg-blue-50 text-[11px] font-semibold text-brand-primary transition-colors"
+                        title="Lihat Pratinjau QR Code"
+                      >
+                        Lihat QR
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDraftWA(inv)}
+                        className={`px-2.5 py-1 rounded border text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+                          copiedId?.id === inv.id && copiedId?.type === 'wa'
+                            ? 'bg-green-100 text-status-success border-status-success'
+                            : 'bg-surface-bg border-surface-border text-status-success hover:bg-green-50'
+                        }`}
+                        title="Salin Draft Undangan WhatsApp"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>{copiedId?.id === inv.id && copiedId?.type === 'wa' ? 'Tersalin!' : 'Draft WA'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDraftEmail(inv)}
+                        className={`px-2.5 py-1 rounded border text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+                          copiedId?.id === inv.id && copiedId?.type === 'email'
+                            ? 'bg-blue-100 text-brand-primary border-brand-primary'
+                            : 'bg-surface-bg border-surface-border text-brand-primary hover:bg-blue-50'
+                        }`}
+                        title="Salin Draft Undangan Email"
+                      >
+                        <Mail className="w-3 h-3" />
+                        <span>{copiedId?.id === inv.id && copiedId?.type === 'email' ? 'Tersalin!' : 'Draft Email'}</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -600,77 +859,26 @@ export function UndanganQRSkeleton({ params }) {
   );
 }
 
-// --- S-11: DRAFT EMAIL & WHATSAPP ---
+// --- S-11: DRAFT MESSAGE REDIRECT / PREVIEW ---
 export function DraftMessageSkeleton({ params }) {
   const sessionId = params?.id || 's-2026-muta';
-  const [copiedType, setCopiedType] = useState(null);
-
-  const waTemplate = `*UNDANGAN RESMI MUSYAWARAH UMUM TAHUNAN ANGGOTA (MUTA) 2026*\n\n` +
-    `Kepada Yth. Bapak/Ibu Pemilik Unit,\n` +
-    `Pengurus PPPSRS mengundang kehadiran Anda pada sidang MUTA Tahun Buku 2026 yang akan dilaksanakan pada:\n\n` +
-    `🗓 *Hari/Tanggal:* Sabtu, 28 November 2026\n` +
-    `⏰ *Waktu:* 09:00 WIB - Selesai\n` +
-    `📍 *Lokasi:* Ballroom Lt. 5 Ciputra World Mall\n\n` +
-    `Silakan tunjukkan QR Code pada tautan undangan Anda di meja registrasi.\n` +
-    `Tautan Bilik Suara Mandiri: https://muta-connect.github.io/#/vote/CW2026\n\n` +
-    `Hormat kami,\n*Panitia Pelaksana MUTA 2026*`;
-
-  const copyToClipboard = (text, type) => {
-    navigator.clipboard.writeText(text);
-    setCopiedType(type);
-    setTimeout(() => setCopiedType(null), 2000);
-  };
-
   return (
     <SkeletonPage
       screenId="S-11"
-      title="Draft Pesan Undangan (Email & WhatsApp)"
-      subtitle="Teks siap salin untuk dikirimkan secara manual oleh Admin (UF-04)"
+      title="Draft Pesan Undangan (WhatsApp & Email)"
+      subtitle={`Sesuai revisi, tombol salin draft kini terintegrasi langsung pada tabel Undangan & QR`}
       roles={['admin']}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-status-success flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4" />
-              Template Pesan WhatsApp
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(waTemplate, 'wa')}
-              className="px-2.5 py-1 rounded-md bg-blue-50 text-brand-primary text-[11px] font-semibold flex items-center gap-1 hover:bg-blue-100"
-            >
-              <Copy className="w-3 h-3" />
-              <span>{copiedType === 'wa' ? 'Tersalin!' : 'Salin Teks'}</span>
-            </button>
-          </div>
-          <pre className="p-3 bg-surface-bg rounded-lg text-xs font-sans whitespace-pre-wrap text-content-main leading-relaxed border border-surface-border">
-            {waTemplate}
-          </pre>
-        </div>
-
-        <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-brand-primary flex items-center gap-1.5">
-              <Mail className="w-4 h-4" />
-              Template Surat Undangan Email
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(waTemplate, 'email')}
-              className="px-2.5 py-1 rounded-md bg-blue-50 text-brand-primary text-[11px] font-semibold flex items-center gap-1 hover:bg-blue-100"
-            >
-              <Copy className="w-3 h-3" />
-              <span>{copiedType === 'email' ? 'Tersalin!' : 'Salin Email'}</span>
-            </button>
-          </div>
-          <div className="p-3 bg-surface-bg rounded-lg text-xs text-content-main space-y-2 border border-surface-border">
-            <div><strong>Subjek:</strong> [UNDANGAN RESMI] MUTA Tahun Buku 2026 PPPSRS</div>
-            <div className="pt-2 border-t border-surface-border whitespace-pre-wrap leading-relaxed">
-              {waTemplate}
-            </div>
-          </div>
-        </div>
+      <div className="bg-surface-card rounded-xl border border-surface-border p-6 text-center space-y-3">
+        <p className="text-xs text-content-muted">
+          Penyalinan draft WhatsApp dan Email untuk setiap anggota dapat dilakukan langsung pada halaman <strong>Undangan & QR Code</strong>.
+        </p>
+        <a
+          href={`#/sidang/${sessionId}/undangan`}
+          className="inline-block px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm"
+        >
+          Buka Tabel Undangan & QR &rarr;
+        </a>
       </div>
     </SkeletonPage>
   );

@@ -98,6 +98,9 @@ function doPost(e) {
       case 'saveMember':
         result = handleSaveMember(payload);
         break;
+      case 'deleteMember':
+        result = handleDeleteMember(payload);
+        break;
 
       // 3. Sidang & Agenda (UF-03)
       case 'getSessions':
@@ -412,26 +415,38 @@ function handleImportMembersCSV(payload) {
 }
 
 function handleSaveMember(payload) {
-  const { id, tenantId, no_unit, nama_pemilik, npp, email, no_hp } = payload;
+  const { id, tenantId, no_unit, nama_pemilik, penanggung_jawab, npp, email, no_hp } = payload;
   if (!no_unit || !nama_pemilik || !npp || npp <= 0) {
-    throw new Error('Data unit, nama, dan NPP wajib diisi.');
+    throw new Error('Kode unit, nama anggota, dan bobot NPP wajib diisi.');
   }
 
   if (id) {
     const member = getRows('members').find(m => m.id === id);
     if (!member) throw new Error('Anggota tidak ditemukan.');
-    updateRow('members', member._rowIndex, { no_unit, nama_pemilik, npp, email, no_hp });
+    updateRow('members', member._rowIndex, { no_unit, nama_pemilik, penanggung_jawab: penanggung_jawab || nama_pemilik, npp, email, no_hp });
   } else {
     appendRow('members', {
       id: 'm-' + Utilities.getUuid(),
       tenant_id: tenantId,
       no_unit,
       nama_pemilik,
+      penanggung_jawab: penanggung_jawab || nama_pemilik,
       npp,
       email,
       no_hp,
       created_at: new Date().toISOString()
     });
+  }
+  return { success: true };
+}
+
+function handleDeleteMember(payload) {
+  const { id } = payload;
+  const sheet = getSheet('members');
+  const rows = getRows('members');
+  const member = rows.find(m => m.id === id);
+  if (member) {
+    sheet.deleteRow(member._rowIndex);
   }
   return { success: true };
 }

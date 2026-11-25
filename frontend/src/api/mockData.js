@@ -16,16 +16,16 @@ export const INITIAL_SEED = {
   ],
 
   members: [
-    { id: 'm-01', tenantId: 't-cw1', no_unit: 'A-101', nama_pemilik: 'Hendra Wijaya', npp: 1.2543, email: 'hendra.w@example.com', no_hp: '081234567891' },
-    { id: 'm-02', tenantId: 't-cw1', no_unit: 'A-102', nama_pemilik: 'Dewi Lestari', npp: 1.1205, email: 'dewi.l@example.com', no_hp: '081234567892' },
-    { id: 'm-03', tenantId: 't-cw1', no_unit: 'A-103', nama_pemilik: 'Bambang Soediro', npp: 0.9854, email: 'bambang.s@example.com', no_hp: '081234567893' },
-    { id: 'm-04', tenantId: 't-cw1', no_unit: 'B-201', nama_pemilik: 'Linda Tanuwidjaja', npp: 2.4500, email: 'linda.t@example.com', no_hp: '081234567894' },
-    { id: 'm-05', tenantId: 't-cw1', no_unit: 'B-202', nama_pemilik: 'Rudi Hartono', npp: 1.5432, email: 'rudi.h@example.com', no_hp: '081234567895' },
-    { id: 'm-06', tenantId: 't-cw1', no_unit: 'C-301', nama_pemilik: 'Agus Setiawan', npp: 0.8921, email: 'agus.s@example.com', no_hp: '081234567896' },
-    { id: 'm-07', tenantId: 't-cw1', no_unit: 'C-302', nama_pemilik: 'Farida Hasan', npp: 1.3412, email: 'farida.h@example.com', no_hp: '081234567897' },
-    { id: 'm-08', tenantId: 't-cw1', no_unit: 'PH-01', nama_pemilik: 'PT Graha Investama (Iwan)', npp: 5.6700, email: 'investama@example.com', no_hp: '081234567898' },
-    { id: 'm-09', tenantId: 't-cw1', no_unit: 'PH-02', nama_pemilik: 'Ir. H. Gunawan', npp: 4.8900, email: 'gunawan@example.com', no_hp: '081234567899' },
-    { id: 'm-10', tenantId: 't-cw1', no_unit: 'D-401', nama_pemilik: 'Maya Anggraini', npp: 1.0500, email: 'maya.a@example.com', no_hp: '081234567800' },
+    { id: 'm-01', tenantId: 't-cw1', no_unit: 'A-101', nama_pemilik: 'Hendra Wijaya', penanggung_jawab: 'Hendra Wijaya', npp: 1.2543, email: 'hendra.w@example.com', no_hp: '081234567891' },
+    { id: 'm-02', tenantId: 't-cw1', no_unit: 'A-102', nama_pemilik: 'Dewi Lestari', penanggung_jawab: 'Dewi Lestari', npp: 1.1205, email: 'dewi.l@example.com', no_hp: '081234567892' },
+    { id: 'm-03', tenantId: 't-cw1', no_unit: 'A-103', nama_pemilik: 'Bambang Soediro', penanggung_jawab: 'Bambang Soediro', npp: 0.9854, email: 'bambang.s@example.com', no_hp: '081234567893' },
+    { id: 'm-04', tenantId: 't-cw1', no_unit: 'B-201', nama_pemilik: 'Linda Tanuwidjaja', penanggung_jawab: 'Linda Tanuwidjaja', npp: 2.4500, email: 'linda.t@example.com', no_hp: '081234567894' },
+    { id: 'm-05', tenantId: 't-cw1', no_unit: 'B-202', nama_pemilik: 'Rudi Hartono', penanggung_jawab: 'Rudi Hartono', npp: 1.5432, email: 'rudi.h@example.com', no_hp: '081234567895' },
+    { id: 'm-06', tenantId: 't-cw1', no_unit: 'C-301', nama_pemilik: 'Agus Setiawan', penanggung_jawab: 'Agus Setiawan', npp: 0.8921, email: 'agus.s@example.com', no_hp: '081234567896' },
+    { id: 'm-07', tenantId: 't-cw1', no_unit: 'C-302', nama_pemilik: 'Farida Hasan', penanggung_jawab: 'Farida Hasan', npp: 1.3412, email: 'farida.h@example.com', no_hp: '081234567897' },
+    { id: 'm-08', tenantId: 't-cw1', no_unit: 'PH-01', nama_pemilik: 'PT Graha Investama', penanggung_jawab: 'Iwan Tirta (Direktur)', npp: 5.6700, email: 'investama@example.com', no_hp: '081234567898' },
+    { id: 'm-09', tenantId: 't-cw1', no_unit: 'PH-02', nama_pemilik: 'Ir. H. Gunawan', penanggung_jawab: 'Ir. H. Gunawan', npp: 4.8900, email: 'gunawan@example.com', no_hp: '081234567899' },
+    { id: 'm-10', tenantId: 't-cw1', no_unit: 'D-401', nama_pemilik: 'Maya Anggraini', penanggung_jawab: 'Maya Anggraini', npp: 1.0500, email: 'maya.a@example.com', no_hp: '081234567800' },
   ],
 
   sessions: [
