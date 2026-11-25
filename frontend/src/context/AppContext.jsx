@@ -1,18 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 /**
- * AppContext - State Konteks Shell & Konfigurasi Global
- * Mengacu pada Information Architecture (information-architecture.md)
- * Menyediakan konteks:
- * - Pengguna & Peran aktif (Admin, Panitia, Petugas Registrasi)
- * - Tenant aktif (multi-tenant PPPSRS)
- * - Sidang aktif (MUTA/RUTA)
+ * AppContext - State Konteks Global MUTA Connect (Single Tenant: PPPSRSKC CIPUTRA WORLD 1 JAKARTA)
+ * Mengacu pada instruksi user: Khusus untuk 1 tenant resmi saja.
  */
 
 const AppContext = createContext(null);
 
+const SINGLE_TENANT = {
+  id: 't-cw1',
+  name: 'PPPSRSKC CIPUTRA WORLD 1 JAKARTA',
+  unitCount: 133,
+  totalNpp: 100.0
+};
+
 export function AppProvider({ children }) {
-  // Simulasi sesi pengguna untuk navigasi shell (FR-AUTH, Section 3 IA)
   const [currentUser, setCurrentUser] = useState({
     id: 'u-admin-1',
     name: 'Administrator PPPSRS',
@@ -21,24 +23,16 @@ export function AppProvider({ children }) {
     isAuthenticated: true
   });
 
-  // Daftar tenant simulasi (FR-TEN)
-  const [tenants] = useState([
-    { id: 't-cw1', name: 'PPPSRSKC Ciputra World 1', unitCount: 133, nppTotal: 100 },
-    { id: 't-cw2', name: 'PPPSRS Puncak Bukit Golf', unitCount: 95, nppTotal: 100 },
-  ]);
-  const [currentTenantId, setCurrentTenantId] = useState('t-cw1');
+  const [currentTenant] = useState(SINGLE_TENANT);
 
-  // Daftar sidang simulasi (FR-AGD)
   const [sessions] = useState([
-    { id: 's-2026-muta', tenantId: 't-cw1', title: 'MUTA Tahun Buku 2026', type: 'MUTA', status: 'Draft' },
-    { id: 's-2026-ruta', tenantId: 't-cw1', title: 'RUTA Luar Biasa Pembahasan Lift', type: 'RUTA', status: 'Draft' },
+    { id: 's-2026-muta', tenantId: 't-cw1', title: 'MUTA Tahun Buku 2026', type: 'MUTA', status: 'Draft', kode_publik: 'CW2026' },
+    { id: 's-2026-ruta', tenantId: 't-cw1', title: 'RUTA Luar Biasa Pembahasan Lift', type: 'RUTA', status: 'Draft', kode_publik: 'CW2026-LIFT' },
   ]);
   const [currentSessionId, setCurrentSessionId] = useState('s-2026-muta');
 
-  // Mode sidebar desktop (expand/collapse)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const currentTenant = tenants.find(t => t.id === currentTenantId) || tenants[0];
   const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
 
   const switchRole = (newRole) => {
@@ -71,9 +65,7 @@ export function AppProvider({ children }) {
       switchRole,
       login,
       logout,
-      tenants,
       currentTenant,
-      setCurrentTenantId,
       sessions,
       currentSession,
       setCurrentSessionId,

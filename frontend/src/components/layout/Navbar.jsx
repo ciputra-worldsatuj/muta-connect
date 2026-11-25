@@ -7,8 +7,7 @@ import {
   LogOut, 
   UserCheck, 
   Menu, 
-  X,
-  Search
+  X
 } from 'lucide-react';
 
 export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
@@ -16,9 +15,7 @@ export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
     currentUser, 
     switchRole, 
     logout, 
-    tenants, 
-    currentTenant, 
-    setCurrentTenantId,
+    currentTenant,
     sessions,
     currentSession,
     setCurrentSessionId 
@@ -52,21 +49,12 @@ export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
             </a>
           </div>
 
-          {/* Konteks Tenant & Sidang (IA Section 2 & 11) */}
+          {/* Konteks Single Tenant & Sidang (Revisi 2: Single Tenant Tetap) */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Pemilih Tenant */}
-            <div className="flex items-center gap-1.5 bg-surface-bg border border-surface-border px-3 py-1.5 rounded-lg text-xs">
-              <Building2 className="w-4 h-4 text-brand-accent" />
-              <select
-                value={currentTenant?.id}
-                onChange={(e) => setCurrentTenantId(e.target.value)}
-                className="bg-transparent font-medium text-content-main focus:outline-none cursor-pointer"
-                aria-label="Pilih Tenant PPPSRS"
-              >
-                {tenants.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+            {/* Badge Single Tenant: PPPSRSKC CIPUTRA WORLD 1 JAKARTA */}
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold text-brand-primary shadow-2xs">
+              <Building2 className="w-4 h-4 text-brand-accent shrink-0" />
+              <span>{currentTenant?.name || 'PPPSRSKC CIPUTRA WORLD 1 JAKARTA'}</span>
             </div>
 
             {/* Pemilih Sidang */}
@@ -99,7 +87,7 @@ export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
               <span className="hidden sm:inline">Proyektor</span>
             </a>
 
-            {/* Simulasi Role Switcher (Sangat berguna untuk pengujian matriks izin SOT) */}
+            {/* Role Switcher Simulator */}
             <div className="flex items-center bg-surface-bg border border-surface-border rounded-lg p-1 text-xs">
               <UserCheck className="w-3.5 h-3.5 text-content-muted ml-1 mr-1 hidden sm:inline" />
               <select

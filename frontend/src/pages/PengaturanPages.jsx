@@ -8,28 +8,38 @@ import { Building2, Users, Sliders, CheckCircle2 } from 'lucide-react';
  */
 
 export function PengaturanTenantSkeleton() {
-  const { tenants, currentTenant } = useApp();
+  const { currentTenant } = useApp();
 
   return (
     <SkeletonPage
       screenId="S-29"
-      title="Pengaturan Multi-Tenant PPPSRS"
-      subtitle="Entitas perhimpunan yang dikelola dalam satu basis data bersama (SRS Section 1.2)"
+      title="Informasi Perhimpunan (Single Tenant)"
+      subtitle="Data identitas resmi perhimpunan PPPSRS pemilik sistem MUTA Connect"
       roles={['admin']}
     >
-      <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {tenants.map(t => (
-            <div key={t.id} className="p-4 bg-surface-bg rounded-xl border border-surface-border space-y-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-brand-primary">
-                <Building2 className="w-4 h-4 text-brand-accent" />
-                <span>{t.name}</span>
-              </div>
-              <div className="text-xs text-content-muted">
-                Kapasitas: {t.unitCount} Unit • Total Bobot: {t.totalNpp || 100}% NPP
-              </div>
+      <div className="bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">
+        <div className="p-5 bg-blue-50/50 rounded-xl border border-blue-200/80 space-y-3">
+          <div className="flex items-center gap-2.5 font-bold text-base text-brand-primary">
+            <Building2 className="w-5 h-5 text-brand-accent" />
+            <span>PPPSRSKC CIPUTRA WORLD 1 JAKARTA</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+            <div className="p-3 bg-white rounded-lg border border-surface-border">
+              <span className="text-content-muted block text-[11px]">ID Tenant</span>
+              <span className="font-bold text-content-main font-mono">t-cw1</span>
             </div>
-          ))}
+            <div className="p-3 bg-white rounded-lg border border-surface-border">
+              <span className="text-content-muted block text-[11px]">Kapasitas Unit</span>
+              <span className="font-bold text-content-main">{currentTenant?.unitCount || 342} Unit</span>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-surface-border">
+              <span className="text-content-muted block text-[11px]">Total Bobot NPP</span>
+              <span className="font-bold text-status-success">{currentTenant?.totalNpp || 100}% NPP</span>
+            </div>
+          </div>
+          <p className="text-[11px] text-content-muted pt-1">
+            Mode Single-Tenant aktif. Seluruh data sidang, anggota, kuorum, dan hasil voting terisolasi khusus untuk PPPSRSKC CIPUTRA WORLD 1 JAKARTA.
+          </p>
         </div>
       </div>
     </SkeletonPage>

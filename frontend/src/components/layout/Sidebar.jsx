@@ -39,7 +39,12 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
       title: 'Anggota',
       icon: Users,
       path: '/anggota',
-      roles: ['admin', 'panitia']
+      roles: ['admin', 'panitia'],
+      subItems: [
+        { title: 'Daftar Anggota', path: '/anggota', roles: ['admin', 'panitia'] },
+        { title: 'Tambah Anggota', path: '/anggota/baru', roles: ['admin'] },
+        { title: 'Impor CSV', path: '/anggota/impor', roles: ['admin'] }
+      ]
     },
     {
       title: 'Sidang & Agenda',
@@ -59,7 +64,7 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
       path: '/registrasi/scan',
       roles: ['admin', 'petugas'],
       subItems: [
-        { title: 'Scan QR Check-in', path: '/registrasi/scan', roles: ['petugas'] },
+        { title: 'Scan QR Check-in', path: '/registrasi/scan', roles: ['admin', 'petugas'] },
         { title: 'Check-in Manual', path: '/registrasi/manual', roles: ['admin', 'petugas'] }
       ]
     },
@@ -99,10 +104,9 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
     {
       title: 'Pengaturan Sistem',
       icon: Settings,
-      path: '/pengaturan/tenant',
+      path: '/pengaturan/pengguna',
       roles: ['admin'],
       subItems: [
-        { title: 'Tenant PPPSRS', path: '/pengaturan/tenant', roles: ['admin'] },
         { title: 'Pengguna & Akun', path: '/pengaturan/pengguna', roles: ['admin'] },
         { title: 'Parameter & Kuorum', path: '/pengaturan/parameter', roles: ['admin'] }
       ]
@@ -114,9 +118,30 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
     item.roles.includes(currentUser.role)
   );
 
-  const isActive = (path) => {
-    if (path === '/beranda') return currentPath === '/beranda';
-    return currentPath.startsWith(path);
+  const isSubItemActive = (subPath) => {
+    if (currentPath === subPath) return true;
+    if (subPath.includes('/agenda') && currentPath.includes('/agenda')) return true;
+    if (subPath.includes('/undangan') && currentPath.includes('/undangan')) return true;
+    if (subPath.includes('/kuasa') && currentPath.includes('/kuasa')) return true;
+    return false;
+  };
+
+  const getBasePrefix = (path) => {
+    const parts = path.split('/').filter(Boolean);
+    return parts.length > 0 ? `/${parts[0]}` : path;
+  };
+
+  const isItemActive = (item) => {
+    if (item.subItems) {
+      const hasActiveSub = item.subItems.some(sub => isSubItemActive(sub.path));
+      if (hasActiveSub) return true;
+      const prefix = getBasePrefix(item.path);
+      if (prefix && prefix !== '/' && currentPath.startsWith(prefix)) {
+        return true;
+      }
+    }
+    if (item.path === '/beranda') return currentPath === '/beranda';
+    return currentPath === item.path || currentPath.startsWith(item.path + '/');
   };
 
   return (
@@ -144,7 +169,7 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {accessibleMenus.map((item) => {
           const Icon = item.icon;
-          const active = isActive(item.path);
+          const active = isItemActive(item);
 
           return (
             <div key={item.title} className="space-y-1">
@@ -171,22 +196,25 @@ export function Sidebar({ currentPath, isMobile = false, onCloseMobile }) {
                 <div className="ml-7 pl-2 border-l border-surface-border space-y-1 py-1">
                   {item.subItems
                     .filter(sub => sub.roles.includes(currentUser.role))
-                    .map(sub => (
-                      <a
-                        key={sub.title}
-                        href={`#${sub.path}`}
-                        onClick={() => isMobile && onCloseMobile && onCloseMobile()}
-                        className={`
-                          block px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors
-                          ${currentPath === sub.path 
-                            ? 'text-brand-primary font-bold bg-blue-50' 
-                            : 'text-content-muted hover:text-content-main hover:bg-surface-bg'
-                          }
-                        `}
-                      >
-                        {sub.title}
-                      </a>
-                    ))}
+                    .map(sub => {
+                      const subActive = isSubItemActive(sub.path);
+                      return (
+                        <a
+                          key={sub.title}
+                          href={`#${sub.path}`}
+                          onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+                          className={`
+                            block px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors
+                            ${subActive 
+                              ? 'text-brand-primary font-bold bg-blue-50 border-r-2 border-brand-primary' 
+                              : 'text-content-muted hover:text-content-main hover:bg-surface-bg'
+                            }
+                          `}
+                        >
+                          {sub.title}
+                        </a>
+                      );
+                    })}
                 </div>
               )}
             </div>

@@ -251,10 +251,46 @@ export function VotingPemilihPage({ params }) {
                 </div>
               )}
 
-              {/* Tombol Pilihan Jawaban (Target Sentuh Min 56px) */}
+              {/* Tombol Pilihan Jawaban (Target Sentuh Min 56px) - Palet Warna A=Hijau, B=Merah, C=Kuning */}
               <div className="space-y-2.5 pt-1">
                 {(activeQuestion.pilihan || ['Setuju', 'Tidak Setuju', 'Abstain']).map((choice, idx) => {
                   const isSelected = selectedChoices.includes(choice);
+
+                  // Palet warna voting sesuai Revisi 3: A = HIJAU, B = MERAH, C = KUNING
+                  let colorStyle = {
+                    base: 'border-surface-border bg-surface-card text-content-main hover:bg-surface-bg',
+                    badge: 'bg-surface-bg text-content-muted',
+                    selected: 'border-brand-primary bg-blue-50 text-brand-primary ring-2 ring-brand-primary/20',
+                    selectedBadge: 'bg-brand-primary text-white',
+                    icon: 'text-brand-primary'
+                  };
+
+                  if (idx === 0) { // A = HIJAU
+                    colorStyle = {
+                      base: 'border-green-200 bg-green-50/30 text-green-950 hover:bg-green-50',
+                      badge: 'bg-green-100 text-[#15803D] font-black border border-green-300',
+                      selected: 'border-[#15803D] bg-green-100 text-green-950 ring-2 ring-[#15803D]/30 shadow-md',
+                      selectedBadge: 'bg-[#15803D] text-white font-black',
+                      icon: 'text-[#15803D]'
+                    };
+                  } else if (idx === 1) { // B = MERAH
+                    colorStyle = {
+                      base: 'border-red-200 bg-red-50/30 text-red-950 hover:bg-red-50',
+                      badge: 'bg-red-100 text-[#B91C1C] font-black border border-red-300',
+                      selected: 'border-[#B91C1C] bg-red-100 text-red-950 ring-2 ring-[#B91C1C]/30 shadow-md',
+                      selectedBadge: 'bg-[#B91C1C] text-white font-black',
+                      icon: 'text-[#B91C1C]'
+                    };
+                  } else if (idx === 2) { // C = KUNING
+                    colorStyle = {
+                      base: 'border-yellow-200 bg-yellow-50/30 text-yellow-950 hover:bg-yellow-50',
+                      badge: 'bg-yellow-100 text-[#854D0E] font-black border border-yellow-300',
+                      selected: 'border-[#EAB308] bg-yellow-100 text-yellow-950 ring-2 ring-[#EAB308]/40 shadow-md',
+                      selectedBadge: 'bg-[#EAB308] text-slate-950 font-black',
+                      icon: 'text-[#854D0E]'
+                    };
+                  }
+
                   return (
                     <button
                       key={idx}
@@ -263,21 +299,18 @@ export function VotingPemilihPage({ params }) {
                       className={`
                         w-full min-h-[56px] p-4 rounded-xl border-2 font-bold text-sm text-left transition-all
                         flex items-center justify-between shadow-sm
-                        ${isSelected
-                          ? 'border-brand-primary bg-blue-50 text-brand-primary ring-2 ring-brand-primary/20'
-                          : 'border-surface-border bg-surface-card text-content-main hover:bg-surface-bg'
-                        }
+                        ${isSelected ? colorStyle.selected : colorStyle.base}
                       `}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`w-7 h-7 rounded-lg text-xs flex items-center justify-center font-bold ${
-                          isSelected ? 'bg-brand-primary text-white' : 'bg-surface-bg text-content-muted'
+                        <span className={`w-8 h-8 rounded-lg text-xs flex items-center justify-center font-bold ${
+                          isSelected ? colorStyle.selectedBadge : colorStyle.badge
                         }`}>
                           {String.fromCharCode(65 + idx)}
                         </span>
-                        <span>{choice}</span>
+                        <span className="text-sm font-bold">{choice}</span>
                       </div>
-                      {isSelected && <CheckCircle2 className="w-5 h-5 text-brand-primary shrink-0" />}
+                      {isSelected && <CheckCircle2 className={`w-6 h-6 ${colorStyle.icon} shrink-0`} />}
                     </button>
                   );
                 })}

@@ -172,14 +172,39 @@ export function ProyektorVotingSkeleton() {
   const activeQuestion = projectorData?.activeQuestion;
   const voteResults = projectorData?.activeVoteResults;
 
-  // Warna grafik netral sesuai Design System Section 4.3
-  const choiceColors = [
-    'bg-[#93B4FF] text-slate-900', // Pilihan 1
-    'bg-[#2DD4BF] text-slate-900', // Pilihan 2
-    'bg-[#FBBF24] text-slate-900', // Pilihan 3
-    'bg-[#C4B5FD] text-slate-900', // Pilihan 4
-    'bg-[#F9A8D4] text-slate-900', // Pilihan 5
-  ];
+  // Warna voting sesuai Revisi 3: A = HIJAU, B = MERAH, C = KUNING
+  const getChoicePalette = (idx) => {
+    switch (idx) {
+      case 0: // A = HIJAU
+        return {
+          cardBg: 'bg-green-950/40 border-green-500/60',
+          badge: 'bg-[#15803D] text-white',
+          textAccent: 'text-[#4ADE80]',
+          border: 'border-green-500'
+        };
+      case 1: // B = MERAH
+        return {
+          cardBg: 'bg-red-950/40 border-red-500/60',
+          badge: 'bg-[#B91C1C] text-white',
+          textAccent: 'text-[#F87171]',
+          border: 'border-red-500'
+        };
+      case 2: // C = KUNING
+        return {
+          cardBg: 'bg-yellow-950/40 border-yellow-500/60',
+          badge: 'bg-[#EAB308] text-slate-950 font-black',
+          textAccent: 'text-[#FBBF24]',
+          border: 'border-yellow-500'
+        };
+      default:
+        return {
+          cardBg: 'bg-blue-950/40 border-blue-500/60',
+          badge: 'bg-blue-600 text-white',
+          textAccent: 'text-blue-300',
+          border: 'border-blue-500'
+        };
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full space-y-6">
@@ -211,26 +236,26 @@ export function ProyektorVotingSkeleton() {
             </div>
           </div>
 
-          {/* Grafik Bar Pilihan (Kahoot Style) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {/* Grafik Bar Pilihan (A = Hijau, B = Merah, C = Kuning) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             {(activeQuestion.pilihan || ['Setuju', 'Tidak Setuju', 'Abstain']).map((pilihan, idx) => {
               const tallyNpp = voteResults?.tally ? (voteResults.tally[pilihan] || 0) : 0;
-              const colorClass = choiceColors[idx % choiceColors.length];
+              const palette = getChoicePalette(idx);
 
               return (
-                <div key={idx} className="bg-surface-dark-card border border-surface-dark-border rounded-2xl p-6 flex flex-col justify-between shadow-lg">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className={`w-8 h-8 rounded-lg font-black flex items-center justify-center text-sm ${colorClass}`}>
+                <div key={idx} className={`rounded-2xl p-6 flex flex-col justify-between shadow-xl border-2 ${palette.cardBg} backdrop-blur-sm transition-all`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className={`w-10 h-10 rounded-xl font-black flex items-center justify-center text-lg shadow-md ${palette.badge}`}>
                       {String.fromCharCode(65 + idx)}
                     </span>
-                    <span className="font-bold text-base text-content-dark-main">{pilihan}</span>
+                    <span className="font-bold text-lg text-content-dark-main">{pilihan}</span>
                   </div>
 
                   <div className="space-y-1">
-                    <div className="text-3xl font-black text-brand-dark-accent tabular-nums">
+                    <div className={`text-4xl font-black tabular-nums tracking-tight ${palette.textAccent}`}>
                       {tallyNpp.toFixed(2)}%
                     </div>
-                    <div className="text-xs text-content-dark-muted">Bobot NPP Terhitung</div>
+                    <div className="text-xs text-content-dark-muted font-medium">Bobot NPP Terhitung</div>
                   </div>
                 </div>
               );
