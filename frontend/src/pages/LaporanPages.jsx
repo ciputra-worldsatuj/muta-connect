@@ -63,7 +63,7 @@ export function LaporanSidangSkeleton() {
     <SkeletonPage
       screenId="S-25"
       title="Laporan & Rekapitulasi Sidang"
-      subtitle={`Laporan resmi hasil musyawarah dan voting berbobot NPP untuk ${sessionId} (UF-12)`}
+      subtitle={`Laporan resmi hasil musyawarah dan voting berbobot NPP untuk ${sessionId}`}
       roles={['admin', 'panitia']}
     >
       <div className="space-y-6">
@@ -133,7 +133,7 @@ export function BeritaAcaraSkeleton() {
     <SkeletonPage
       screenId="S-26"
       title="Berita Acara Resmi Sidang"
-      subtitle="Dokumen berita acara terisi otomatis untuk pengesahan pimpinan sidang dan notaris (UF-12)"
+      subtitle="Dokumen berita acara terisi otomatis untuk pengesahan pimpinan sidang dan notaris"
       roles={['admin', 'panitia']}
     >
       <div className="space-y-4">
@@ -209,7 +209,7 @@ export function RiwayatSidangSkeleton() {
     <SkeletonPage
       screenId="S-27"
       title="Riwayat & Komparasi Antar Sidang"
-      subtitle="Analisis tren kehadiran kuorum dan efektivitas keputusan musyawarah (UF-14)"
+      subtitle="Analisis tren kehadiran kuorum dan efektivitas keputusan musyawarah"
       roles={['admin', 'panitia']}
     >
       <div className="bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">

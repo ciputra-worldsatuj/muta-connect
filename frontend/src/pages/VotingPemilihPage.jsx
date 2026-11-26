@@ -139,7 +139,7 @@ export function VotingPemilihPage({ params }) {
         <div className="bg-surface-card p-5 rounded-2xl border border-surface-border shadow-sm space-y-3">
           <div className="text-center pb-1">
             <h2 className="text-sm font-bold text-content-main uppercase tracking-wide">
-              Langkah 1: Pilih Identitas Pemilih (S-20)
+              Langkah 1: Pilih Identitas Pemilih
             </h2>
             <p className="text-xs text-content-muted mt-0.5">
               Hanya peserta yang telah check-in berstatus HADIR yang dapat memilih.
@@ -228,7 +228,7 @@ export function VotingPemilihPage({ params }) {
               <div className="flex justify-between items-center pb-2 border-b border-surface-border">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-status-success flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-status-success animate-ping" />
-                  Soal Voting Terbuka (S-21)
+                  Soal Voting Terbuka
                 </span>
                 <span className="text-xs font-bold text-status-warning flex items-center gap-1 tabular-nums">
                   <Clock className="w-3.5 h-3.5" />
@@ -328,11 +328,11 @@ export function VotingPemilihPage({ params }) {
               </button>
             </div>
           ) : (
-            /* S-23: MENUNGGU SOAL DIBUKA */
+            /* FEEDBACK MENUNGGU SOAL DIBUKA */
             <div className="bg-surface-card rounded-2xl border border-surface-border p-8 text-center space-y-3 shadow-sm">
               <Clock className="w-12 h-12 text-brand-accent mx-auto animate-pulse" />
               <h2 className="text-base font-bold text-content-main">
-                Menunggu Soal Dibuka (S-23)
+                Menunggu Soal Dibuka
               </h2>
               <p className="text-xs text-content-muted leading-relaxed">
                 Panitia sidang belum membuka sesi pemungutan suara untuk agenda saat ini. Layar ini akan otomatis menampilkan pertanyaan saat soal dibuka.

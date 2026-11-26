@@ -17,7 +17,7 @@ export function AuthLayout({ children }) {
             MUTA <span className="text-brand-accent">Connect</span>
           </h1>
           <p className="text-xs text-content-muted mt-1">
-            Sistem Informasi Sidang Umum & Musyawarah PPPSRS
+            Sistem Informasi Musyawarah Umum PPPSRSKC
           </p>
         </div>
 

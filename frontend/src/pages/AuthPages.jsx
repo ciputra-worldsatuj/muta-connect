@@ -28,7 +28,9 @@ export function LoginSkeleton() {
       if (res.user.isTempPassword) {
         window.location.hash = '#/ganti-password';
       } else {
-        login(res.user.role || 'admin');
+        const userRole = res.user.role || res.user.peran || 'admin';
+        const userName = res.user.nama || res.user.name;
+        login(userRole, userName, res.user.username);
       }
     } catch (err) {
       setErrorMsg(err.message || 'Username atau password salah');
@@ -37,17 +39,11 @@ export function LoginSkeleton() {
     }
   };
 
-  const handleQuickRole = (role) => {
-    setUsername(role);
-    setPassword('password123');
-    setErrorMsg('');
-  };
-
   return (
     <div className="space-y-5">
       <div className="text-center pb-2">
         <h2 className="text-xl font-bold text-content-main">Masuk ke Akun Anda</h2>
-        <p className="text-xs text-content-muted mt-0.5">Sistem Musyawarah PPPSRS (MUTA Connect)</p>
+        <p className="text-xs text-content-muted mt-0.5">Silakan input username dan password yang terdaftar.</p>
       </div>
 
       {errorMsg && (
@@ -56,33 +52,6 @@ export function LoginSkeleton() {
           <span>{errorMsg}</span>
         </div>
       )}
-
-      {/* Pintasan Peran untuk Kemudahan Uji Coba */}
-      <div className="bg-surface-bg p-3 rounded-lg border border-surface-border">
-        <label className="block text-[11px] font-bold text-content-muted uppercase tracking-wider mb-1.5">
-          Pintasan Akun Uji Coba:
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { role: 'admin', label: 'Admin' },
-            { role: 'panitia', label: 'Panitia' },
-            { role: 'petugas', label: 'Petugas' }
-          ].map(item => (
-            <button
-              key={item.role}
-              type="button"
-              onClick={() => handleQuickRole(item.role)}
-              className={`py-1.5 px-2 rounded-md text-xs font-semibold uppercase border transition-colors ${
-                username === item.role
-                  ? 'bg-brand-primary text-white border-brand-primary'
-                  : 'bg-surface-card text-content-muted border-surface-border hover:bg-slate-100'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -169,7 +138,7 @@ export function ChangePasswordSkeleton() {
           <KeyRound className="w-5 h-5" />
         </div>
         <h2 className="text-lg font-bold text-content-main">Ganti Password Sementara</h2>
-        <p className="text-xs text-content-muted mt-0.5">Wajib mengganti password saat login pertama kali (UF-01)</p>
+        <p className="text-xs text-content-muted mt-0.5">Wajib mengganti password saat login pertama kali</p>
       </div>
 
       {status.error && (

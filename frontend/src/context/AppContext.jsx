@@ -15,23 +15,59 @@ const SINGLE_TENANT = {
 };
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState({
-    id: 'u-admin-1',
-    name: 'Administrator PPPSRS',
-    username: 'admin',
-    role: 'admin', // 'admin' | 'panitia' | 'petugas'
-    isAuthenticated: true
-  });
+  const loadInitialUser = () => {
+    try {
+      const stored = sessionStorage.getItem('muta_current_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.role) return parsed;
+      }
+    } catch (e) {}
+    return {
+      id: 'u-admin-1',
+      name: 'Administrator PPPSRS',
+      username: 'admin',
+      role: 'admin', // 'admin' | 'panitia' | 'petugas'
+      isAuthenticated: true
+    };
+  };
+
+  const [currentUser, setCurrentUser] = useState(loadInitialUser);
 
   const [currentTenant] = useState(SINGLE_TENANT);
 
-  const [sessions] = useState([
-    { id: 's-2026-muta', tenantId: 't-cw1', title: 'MUTA Tahun Buku 2026', type: 'MUTA', status: 'Draft', kode_publik: 'CW2026' },
-    { id: 's-2026-ruta', tenantId: 't-cw1', title: 'RUTA Luar Biasa Pembahasan Lift', type: 'RUTA', status: 'Draft', kode_publik: 'CW2026-LIFT' },
-  ]);
+  const loadInitialSessions = () => {
+    try {
+      const raw = localStorage.getItem('muta_connect_db_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.sessions && parsed.sessions.length > 0) {
+          return parsed.sessions;
+        }
+      }
+    } catch (e) {}
+    return [
+      { id: 's-2026-muta', tenantId: 't-cw1', judul: 'MUTA Tahun Buku 2026', title: 'MUTA Tahun Buku 2026', type: 'MUTA', status: 'Draft', kode_publik: 'CW2026' },
+      { id: 's-2026-ruta', tenantId: 't-cw1', judul: 'RUTA Luar Biasa Pembahasan Lift', title: 'RUTA Luar Biasa Pembahasan Lift', type: 'RUTA', status: 'Draft', kode_publik: 'CW2026-LIFT' },
+    ];
+  };
+
+  const [sessions, setSessions] = useState(loadInitialSessions);
   const [currentSessionId, setCurrentSessionId] = useState('s-2026-muta');
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const refreshSessions = () => {
+    try {
+      const raw = localStorage.getItem('muta_connect_db_v3');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.sessions) {
+          setSessions([...parsed.sessions]);
+        }
+      }
+    } catch (e) {}
+  };
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
 
@@ -45,17 +81,24 @@ export function AppProvider({ children }) {
 
   const logout = () => {
     setCurrentUser(prev => ({ ...prev, isAuthenticated: false }));
+    try {
+      sessionStorage.removeItem('muta_current_user');
+    } catch (e) {}
     window.location.hash = '#/login';
   };
 
-  const login = (role = 'admin') => {
-    setCurrentUser({
-      id: 'u-1',
-      name: role === 'admin' ? 'Administrator PPPSRS' : role === 'panitia' ? 'Panitia Pelaksana' : 'Petugas Meja Registrasi',
-      username: role,
+  const login = (role = 'admin', name = null, username = null) => {
+    const userObj = {
+      id: 'u-' + (username || role),
+      name: name || (role === 'admin' ? 'Administrator PPPSRS' : role === 'panitia' ? 'Panitia Pelaksana' : 'Petugas Meja Registrasi'),
+      username: username || role,
       role: role,
       isAuthenticated: true
-    });
+    };
+    setCurrentUser(userObj);
+    try {
+      sessionStorage.setItem('muta_current_user', JSON.stringify(userObj));
+    } catch (e) {}
     window.location.hash = '#/beranda';
   };
 
@@ -67,6 +110,7 @@ export function AppProvider({ children }) {
       logout,
       currentTenant,
       sessions,
+      refreshSessions,
       currentSession,
       setCurrentSessionId,
       sidebarCollapsed,

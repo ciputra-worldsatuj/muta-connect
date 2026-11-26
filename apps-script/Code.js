@@ -218,11 +218,11 @@ function initSheetHeaders(sheet, name) {
   const headers = {
     users: ['id', 'tenant_id', 'username', 'password_hash', 'nama', 'peran', 'is_temp_password', 'status', 'created_at'],
     tenants: ['id', 'nama_tenant', 'alamat', 'total_unit', 'total_npp', 'created_at'],
-    members: ['id', 'tenant_id', 'no_unit', 'nama_pemilik', 'npp', 'email', 'no_hp', 'created_at'],
-    sessions: ['id', 'tenant_id', 'tipe', 'judul', 'tanggal', 'lokasi', 'status', 'ambang_kuorum', 'kode_publik', 'waktu_mulai', 'waktu_tutup', 'created_at'],
+    members: ['id', 'tenant_id', 'no_unit', 'nama_pemilik', 'penanggung_jawab', 'npp', 'email', 'no_hp', 'total_unit', 'created_at'],
+    sessions: ['id', 'tenant_id', 'tipe', 'judul', 'tanggal', 'hari_tanggal', 'waktu_pelaksanaan', 'waktu_dari', 'waktu_sampai', 'lokasi', 'status', 'ambang_kuorum', 'kode_publik', 'waktu_mulai', 'waktu_tutup', 'created_at'],
     agendas: ['id', 'session_id', 'urutan', 'judul', 'deskripsi', 'created_at'],
     questions: ['id', 'agenda_id', 'session_id', 'tipe_soal', 'pertanyaan', 'pilihan_json', 'maks_pilihan', 'durasi_detik', 'status', 'waktu_buka', 'created_at'],
-    invitations: ['id', 'session_id', 'tenant_id', 'member_id', 'uid_qr', 'status_qr', 'created_at'],
+    invitations: ['id', 'session_id', 'tenant_id', 'member_id', 'no_unit', 'nama_pemilik', 'npp', 'uid_qr', 'status_qr', 'created_at'],
     proxies: ['id', 'invitation_id', 'session_id', 'nama_kuasa', 'no_hp_kuasa', 'url_surat_kuasa', 'status', 'created_at'],
     attendances: ['id', 'session_id', 'member_id', 'tipe_kehadiran', 'label_waktu', 'status', 'waktu_checkin', 'petugas_id'],
     votes: ['id', 'session_id', 'question_id', 'pilihan', 'bobot_npp', 'created_at'], // R-08: Tanpa voter_id agar rahasia
@@ -1049,4 +1049,228 @@ function errorResponse(message, code) {
     },
     timestamp: new Date().toISOString()
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * ============================================================================
+ * ONE-CLICK DATABASE SETUP & DUMMY DATA GENERATOR
+ * ============================================================================
+ * Menghasilkan seluruh 13 sheet / tab database, format kolom berstandar,
+ * serta menyuntikkan 25 data anggota MUA, sesi sidang, agenda, soal,
+ * akun uji coba (Admin, Panitia, Petugas), dan QR Code format CW1JXXXXX.
+ */
+
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('⚡ MUTA Connect')
+      .addItem('🚀 Setup Database & Generate Data Dummy', 'setupDatabaseSheets')
+      .addToUi();
+  } catch (e) {
+    // Abaikan jika dijalankan di luar UI Spreadsheet (headless)
+  }
+}
+
+function setupDatabaseSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tenantId = 't-cw1';
+  const tenantName = 'PPPSRSKC CIPUTRA WORLD 1 JAKARTA';
+
+  // 1. Definisi Skema Seluruh Sheet & Header Kolom
+  const schemas = {
+    tenants: ['id', 'nama_tenant', 'alamat', 'total_unit', 'total_npp', 'created_at'],
+    users: ['id', 'tenant_id', 'username', 'password_hash', 'nama', 'peran', 'is_temp_password', 'status', 'created_at'],
+    members: ['id', 'tenant_id', 'no_unit', 'nama_pemilik', 'penanggung_jawab', 'npp', 'email', 'no_hp', 'total_unit', 'created_at'],
+    sessions: ['id', 'tenant_id', 'tipe', 'judul', 'tanggal', 'hari_tanggal', 'waktu_pelaksanaan', 'waktu_dari', 'waktu_sampai', 'lokasi', 'status', 'ambang_kuorum', 'kode_publik', 'waktu_mulai', 'waktu_tutup', 'created_at'],
+    agendas: ['id', 'session_id', 'urutan', 'judul', 'deskripsi', 'created_at'],
+    questions: ['id', 'agenda_id', 'session_id', 'tipe_soal', 'pertanyaan', 'pilihan_json', 'maks_pilihan', 'durasi_detik', 'status', 'waktu_buka', 'created_at'],
+    invitations: ['id', 'session_id', 'tenant_id', 'member_id', 'no_unit', 'nama_pemilik', 'npp', 'uid_qr', 'status_qr', 'created_at'],
+    proxies: ['id', 'invitation_id', 'session_id', 'nama_kuasa', 'no_hp_kuasa', 'url_surat_kuasa', 'status', 'created_at'],
+    attendances: ['id', 'session_id', 'member_id', 'tipe_kehadiran', 'label_waktu', 'status', 'waktu_checkin', 'petugas_id'],
+    votes: ['id', 'session_id', 'question_id', 'pilihan', 'bobot_npp', 'created_at'],
+    voted_records: ['id', 'session_id', 'question_id', 'member_id', 'created_at'],
+    kicked_records: ['id', 'session_id', 'member_id', 'alasan', 'created_at'],
+    logs: ['id', 'tenant_id', 'user_id', 'aksi', 'detail', 'created_at']
+  };
+
+  // Buat atau bersihkan setiap tab
+  Object.keys(schemas).forEach(sheetName => {
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    } else {
+      sheet.clear();
+    }
+
+    // Tulis Header Kolom
+    const headerCols = schemas[sheetName];
+    sheet.appendRow(headerCols);
+
+    // Format Header: Navy Blue (#1E3A8A), Teks Putih Tebal, Freeze Baris 1
+    const headerRange = sheet.getRange(1, 1, 1, headerCols.length);
+    headerRange.setFontWeight('bold')
+      .setBackground('#1E3A8A')
+      .setFontColor('#FFFFFF')
+      .setHorizontalAlignment('center');
+    sheet.setFrozenRows(1);
+  });
+
+  const now = new Date().toISOString();
+
+  // 2. Data Dummy: tenants
+  const sheetTenants = ss.getSheetByName('tenants');
+  sheetTenants.appendRow([
+    tenantId,
+    tenantName,
+    'Jl. Prof. DR. Satrio Kav. 3-5, Kuningan, Karet Kuningan, Setiabudi, Jakarta Selatan',
+    133,
+    100.0,
+    now
+  ]);
+
+  // 3. Data Dummy: users (Akun Uji Coba)
+  const sheetUsers = ss.getSheetByName('users');
+  const dummyUsers = [
+    ['u-1', tenantId, 'admin', 'password123', 'Administrator PPPSRS', 'admin', false, 'aktif', now],
+    ['u-2', tenantId, 'panitia', 'password123', 'Panitia Pelaksana', 'panitia', false, 'aktif', now],
+    ['u-3', tenantId, 'petugas', 'password123', 'Petugas Meja Registrasi', 'petugas', false, 'aktif', now]
+  ];
+  dummyUsers.forEach(u => sheetUsers.appendRow(u));
+
+  // 4. Data Dummy: 25 Anggota Resmi MUA (Total NPP = 100%)
+  const sheetMembers = ss.getSheetByName('members');
+  const dummyMembers = [
+    ['m-01', tenantId, 'TA-02.01, TA-02.02', 'PT Ciputra Adigraha', 'CALVIN LUKMANTARA', 0.0005, 'calvin.l@ciputra.com', '081234567801', 2, now],
+    ['m-02', tenantId, 'TA-03.01', 'Hendra Wijaya', 'Hendra Wijaya', 4.1250, 'hendra.w@example.com', '081234567802', 1, now],
+    ['m-03', tenantId, 'TA-03.02, TA-03.03', 'PT Graha Cipta Mandiri', 'Ir. H. Gunawan', 5.8420, 'gunawan@graha.com', '081234567803', 2, now],
+    ['m-04', tenantId, 'TA-05.01', 'Dewi Lestari', 'Dewi Lestari', 3.8500, 'dewi.l@example.com', '081234567804', 1, now],
+    ['m-05', tenantId, 'TA-05.02', 'Bambang Soediro', 'Bambang Soediro', 3.7500, 'bambang.s@example.com', '081234567805', 1, now],
+    ['m-06', tenantId, 'TB-06.01, TB-06.02, TB-06.03', 'PT Nusantara Mega Investama', 'Linda Tanuwidjaja', 7.9500, 'linda.t@nusantara.com', '081234567806', 3, now],
+    ['m-07', tenantId, 'TB-07.01', 'Rudi Hartono', 'Rudi Hartono', 3.6500, 'rudi.h@example.com', '081234567807', 1, now],
+    ['m-08', tenantId, 'TB-07.02', 'Agus Setiawan', 'Agus Setiawan', 3.5500, 'agus.s@example.com', '081234567808', 1, now],
+    ['m-09', tenantId, 'TB-08.01', 'Farida Hasan', 'Farida Hasan', 3.4500, 'farida.h@example.com', '081234567809', 1, now],
+    ['m-10', tenantId, 'TB-08.02', 'Maya Anggraini', 'Maya Anggraini', 3.4000, 'maya.a@example.com', '081234567810', 1, now],
+    ['m-11', tenantId, 'TB-09.01, TB-09.02', 'PT Surya Sentosa Abadi', 'Budi Hartawan', 6.2000, 'budi.h@suryasentosa.com', '081234567811', 2, now],
+    ['m-12', tenantId, 'TB-10.01', 'Johan Kusuma', 'Johan Kusuma', 3.2500, 'johan.k@example.com', '081234567812', 1, now],
+    ['m-13', tenantId, 'TB-10.02', 'Silvia Salim', 'Silvia Salim', 3.2000, 'silvia.s@example.com', '081234567813', 1, now],
+    ['m-14', tenantId, 'TA-11.01', 'Dr. Tommy Pranata', 'Dr. Tommy Pranata', 3.3500, 'tommy.p@example.com', '081234567814', 1, now],
+    ['m-15', tenantId, 'TA-11.02', 'Ratna Juwita', 'Ratna Juwita', 3.3000, 'ratna.j@example.com', '081234567815', 1, now],
+    ['m-16', tenantId, 'TA-12.01, TA-12.02', 'PT Tri Daya Perkasa', 'Denny Santoso', 6.1000, 'denny.s@tridaya.com', '081234567816', 2, now],
+    ['m-17', tenantId, 'TA-14.01', 'Andreas Wibowo', 'Andreas Wibowo', 3.1500, 'andreas.w@example.com', '081234567817', 1, now],
+    ['m-18', tenantId, 'TA-14.02', 'Yuliana Susanti', 'Yuliana Susanti', 3.1000, 'yuliana.s@example.com', '081234567818', 1, now],
+    ['m-19', tenantId, 'TB-15.01', 'Michael Chandra', 'Michael Chandra', 3.0500, 'michael.c@example.com', '081234567819', 1, now],
+    ['m-20', tenantId, 'TB-15.02', 'Fenny Christine', 'Fenny Christine', 3.0000, 'fenny.c@example.com', '081234567820', 1, now],
+    ['m-21', tenantId, 'PH-01', 'Keluarga Widjaja', 'Hadi Widjaja', 5.5000, 'hadi.w@example.com', '081234567821', 1, now],
+    ['m-22', tenantId, 'PH-02', 'Ir. Eddy Pramono', 'Ir. Eddy Pramono', 5.2500, 'eddy.p@example.com', '081234567822', 1, now],
+    ['m-23', tenantId, 'PH-03', 'PT Ciputra Hospitalia', 'dr. Rina Suryani', 4.8000, 'rina.s@ciputra.com', '081234567823', 1, now],
+    ['m-24', tenantId, 'TA-16.01, TA-16.02', 'PT Mega Sentosa Propertindo', 'Herman Tedja', 5.7500, 'herman.t@megasentosa.com', '081234567824', 2, now],
+    ['m-25', tenantId, 'TB-16.01', 'Grace Meliana', 'Grace Meliana', 2.9825, 'grace.m@example.com', '081234567825', 1, now]
+  ];
+  dummyMembers.forEach(m => sheetMembers.appendRow(m));
+
+  // 5. Data Dummy: sessions (Sidang MUA 2026)
+  const sheetSessions = ss.getSheetByName('sessions');
+  const sessionId = 's-2026-muta';
+  sheetSessions.appendRow([
+    sessionId,
+    tenantId,
+    'MUTA',
+    'Musyawarah Umum Anggota (MUA) Tahun Buku 2026 PPPSRS CW1J',
+    '2026-07-25',
+    'Sabtu, 25 Juli 2026',
+    '09.00 WIB – selesai',
+    '09.00 WIB',
+    'selesai',
+    'Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta',
+    'Berjalan',
+    50.0,
+    'CW2026',
+    '09:00',
+    '',
+    now
+  ]);
+
+  // 6. Data Dummy: agendas
+  const sheetAgendas = ss.getSheetByName('agendas');
+  const dummyAgendas = [
+    ['ag-01', sessionId, 1, 'Pengesahan Tata Tertib & Rencana Anggaran Dasar (AD)', 'Pembahasan dan pengesahan tata tertib musyawarah serta draf AD PPPSRS CW1J', now],
+    ['ag-02', sessionId, 2, 'Pengesahan ART, Laporan Keuangan, dan Pemilihan Pengurus & Pengawas', 'Pengesahan ART, laporan keuangan transisi teraudit, pemilihan pengurus & pengawas', now]
+  ];
+  dummyAgendas.forEach(a => sheetAgendas.appendRow(a));
+
+  // 7. Data Dummy: questions (Soal Voting)
+  const sheetQuestions = ss.getSheetByName('questions');
+  const dummyQuestions = [
+    ['q-01', 'ag-01', sessionId, 'setuju_tidak_abstain', 'Apakah Anda menyetujui Pengesahan Tata Tertib Musyawarah Umum Anggota 2026?', JSON.stringify(['Setuju', 'Tidak Setuju', 'Abstain']), 1, 60, 'Dibuka', now, now],
+    ['q-02', 'ag-01', sessionId, 'setuju_tidak_abstain', 'Apakah Anda menyetujui Pengesahan Pendirian & Rencana Anggaran Dasar (AD) PPPSRS CW1J?', JSON.stringify(['Setuju', 'Tidak Setuju', 'Abstain']), 1, 60, 'Draft', '', now]
+  ];
+  dummyQuestions.forEach(q => sheetQuestions.appendRow(q));
+
+  // 8. Data Dummy: invitations (25 Undangan dengan format QR CW1JXXXXX)
+  const sheetInvitations = ss.getSheetByName('invitations');
+  const qrCodes = [
+    'CW1J10294', 'CW1J83721', 'CW1J91823', 'CW1J28192', 'CW1J39102',
+    'CW1J48192', 'CW1J59102', 'CW1J68192', 'CW1J79102', 'CW1J88192',
+    'CW1J99102', 'CW1J12345', 'CW1J23456', 'CW1J34567', 'CW1J45678',
+    'CW1J56789', 'CW1J67890', 'CW1J78901', 'CW1J89012', 'CW1J90123',
+    'CW1J01234', 'CW1J11223', 'CW1J22334', 'CW1J33445', 'CW1J44556'
+  ];
+
+  dummyMembers.forEach((m, idx) => {
+    sheetInvitations.appendRow([
+      'inv-' + (idx + 1),
+      sessionId,
+      tenantId,
+      m[0], // memberId
+      m[2], // no_unit
+      m[3], // nama_pemilik
+      m[5], // npp
+      qrCodes[idx], // uid_qr
+      idx === 0 ? 'Terpakai' : 'Aktif',
+      now
+    ]);
+  });
+
+  // 9. Data Dummy: attendances (1 Hadir Awal)
+  const sheetAttendances = ss.getSheetByName('attendances');
+  sheetAttendances.appendRow([
+    'att-01',
+    sessionId,
+    'm-01',
+    'QR_Scan',
+    'On-Time',
+    'HADIR',
+    '08:45 WIB',
+    'u-3'
+  ]);
+
+  // 10. Data Dummy: logs
+  const sheetLogs = ss.getSheetByName('logs');
+  sheetLogs.appendRow([
+    'log-init',
+    tenantId,
+    'system',
+    'SETUP_DATABASE',
+    'Inisialisasi skema sheet dan injeksi 25 data anggota MUA PPPSRS CW1J',
+    now
+  ]);
+
+  // Auto-fit kolom di semua sheet
+  Object.keys(schemas).forEach(sheetName => {
+    const s = ss.getSheetByName(sheetName);
+    if (s) {
+      for (let c = 1; c <= schemas[sheetName].length; c++) {
+        s.autoResizeColumn(c);
+      }
+    }
+  });
+
+  const msg = '✅ Berhasil! 13 sheet database MUTA Connect berhasil dibuat lengkap dengan kolom berstandar dan 25 data dummy anggota!';
+  Logger.log(msg);
+
+  try {
+    SpreadsheetApp.getUi().alert('⚡ MUTA Connect Setup', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    // Abaikan jika dijalankan tanpa UI
+  }
 }

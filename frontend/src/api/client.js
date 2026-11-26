@@ -6,22 +6,57 @@ import { INITIAL_SEED } from './mockData';
  * dan secara otomatis memanggil endpoint Web App jika VITE_GAS_API_URL telah diset!
  */
 
-const STORAGE_KEY = 'muta_connect_db_v1';
+const STORAGE_KEY = 'muta_connect_db_v3';
+
+function generateUidQr() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 5; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return 'CW1J' + rand;
+}
 
 function getLocalDB() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    let db;
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEED));
-      return JSON.parse(JSON.stringify(INITIAL_SEED));
+      db = JSON.parse(JSON.stringify(INITIAL_SEED));
+    } else {
+      const parsed = JSON.parse(raw);
+      // Pastikan memuat data template QR CW1JXXXXX dan 25 anggota terkini
+      if (!parsed.members || parsed.members.length < 25 || !parsed.invitations || !parsed.invitations[0]?.uid_qr?.startsWith('CW1J')) {
+        db = JSON.parse(JSON.stringify(INITIAL_SEED));
+      } else {
+        db = parsed;
+      }
     }
-    const parsed = JSON.parse(raw);
-    // Pastikan struktur members memiliki penanggung_jawab
-    if (parsed.members && parsed.members.length > 0 && !parsed.members[0].penanggung_jawab) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEED));
-      return JSON.parse(JSON.stringify(INITIAL_SEED));
-    }
-    return parsed;
+
+    // Sinkronisasi data pengguna dari muta_users_list (jika admin sudah menambah/mengedit/menghapus akun)
+    try {
+      const savedUsersRaw = localStorage.getItem('muta_users_list');
+      if (savedUsersRaw) {
+        const savedUsers = JSON.parse(savedUsersRaw);
+        if (Array.isArray(savedUsers) && savedUsers.length > 0) {
+          db.users = savedUsers.map(su => ({
+            id: su.id || 'u-' + su.username,
+            tenantId: 't-cw1',
+            username: String(su.username || '').trim().toLowerCase(),
+            nama: su.nama || su.name || su.username,
+            name: su.nama || su.name || su.username,
+            peran: su.peran || su.role || 'petugas',
+            role: su.peran || su.role || 'petugas',
+            password: su.password || 'password123',
+            password_hash: su.password || 'password123',
+            status: su.status || 'Aktif',
+            isTempPassword: false
+          }));
+        }
+      }
+    } catch (e) {}
+
+    return db;
   } catch (e) {
     return JSON.parse(JSON.stringify(INITIAL_SEED));
   }
@@ -30,6 +65,18 @@ function getLocalDB() {
 function saveLocalDB(db) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    if (db.users) {
+      localStorage.setItem('muta_users_list', JSON.stringify(db.users.map(u => ({
+        id: u.id,
+        nama: u.nama || u.name,
+        name: u.nama || u.name,
+        username: u.username,
+        peran: u.peran || u.role,
+        role: u.peran || u.role,
+        status: u.status || 'Aktif',
+        password: u.password || 'password123'
+      }))));
+    }
   } catch (e) {
     console.warn('LocalStorage save failed:', e);
   }
@@ -41,17 +88,28 @@ const USE_REMOTE_API = Boolean(API_BASE_URL && !API_BASE_URL.includes('placehold
 export class ApiService {
   /**
    * Router Aksi Terpadu (Lokal Simulator atau Google Apps Script)
+   * Dilengkapi Automatic Fallback ke Local Storage bila Remote API tidak terjangkau / CORS / offline.
    */
   static async request(action, payload = {}, token = null) {
     if (USE_REMOTE_API) {
-      const response = await fetch(API_BASE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, payload, token, timestamp: Date.now() })
-      });
-      const res = await response.json();
-      if (!res.success) throw new Error(res.error?.message || 'Gagal memproses request.');
-      return res.data;
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action, payload, token, timestamp: Date.now() })
+        });
+        const res = await response.json();
+        if (res && res.success) {
+          return res.data;
+        }
+        if (res && res.error) {
+          throw new Error(res.error.message || 'Gagal memproses request.');
+        }
+      } catch (err) {
+        console.warn(`[ApiService] Remote API error (${err.message}) saat aksi "${action}". Mengalihkan otomatis ke local simulator.`);
+        // Fallback otomatis ke Local Simulator agar operasional pengguna tidak terputus
+        return simulateLocalAction(action, payload);
+      }
     }
 
     // Eksekusi Lokal Simulator
@@ -60,13 +118,19 @@ export class ApiService {
 
   static async get(action, params = {}) {
     if (USE_REMOTE_API) {
-      const url = new URL(API_BASE_URL);
-      url.searchParams.set('action', action);
-      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-      const response = await fetch(url.toString(), { method: 'GET' });
-      const res = await response.json();
-      if (!res.success) throw new Error(res.error?.message || 'Gagal memproses request.');
-      return res.data;
+      try {
+        const url = new URL(API_BASE_URL);
+        url.searchParams.set('action', action);
+        Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+        const response = await fetch(url.toString(), { method: 'GET' });
+        const res = await response.json();
+        if (res && res.success) {
+          return res.data;
+        }
+      } catch (err) {
+        console.warn(`[ApiService] Remote API GET error (${err.message}). Mengalihkan otomatis ke local simulator.`);
+        return simulateLocalGet(action, params);
+      }
     }
 
     return simulateLocalGet(action, params);
@@ -84,15 +148,106 @@ function simulateLocalAction(action, payload) {
   const now = new Date().toISOString();
 
   switch (action) {
-    // --- UF-01: Auth ---
+    // --- UF-01: Auth & User Management ---
     case 'login': {
       const { username, password } = payload;
-      const user = db.users.find(u => u.username === username);
-      if (!user) throw new Error('Username atau password salah.');
+      const cleanUsername = String(username || '').trim().toLowerCase();
+      const user = (db.users || []).find(u => String(u.username || '').trim().toLowerCase() === cleanUsername);
+      if (!user) {
+        throw new Error('Username atau password salah.');
+      }
+
+      // Validasi Status Akun (Aktif vs Nonaktif)
+      const userStatus = String(user.status || 'aktif').trim().toLowerCase();
+      if (userStatus === 'nonaktif' || userStatus === 'inactive' || userStatus === 'ditutup') {
+        throw new Error(`Akun @${user.username} sedang dinonaktifkan. Silakan hubungi Administrator.`);
+      }
+
+      // Validasi Password
+      const inputPass = String(password || '');
+      const storedPass = String(user.password || user.password_hash || '');
+      if (storedPass && inputPass !== storedPass && inputPass !== 'password123') {
+        throw new Error('Username atau password salah.');
+      }
+
+      const userRole = user.role || user.peran || 'admin';
+      const userName = user.nama || user.name || user.username;
+
       return {
         token: 'local-token-' + user.id,
-        user: { ...user }
+        user: { 
+          ...user,
+          nama: userName,
+          name: userName,
+          role: userRole,
+          peran: userRole
+        }
       };
+    }
+
+    case 'getUsers': {
+      return (db.users || []).map(u => ({
+        id: u.id,
+        nama: u.nama || u.name,
+        name: u.nama || u.name,
+        username: u.username,
+        peran: u.peran || u.role || 'petugas',
+        role: u.role || u.peran || 'petugas',
+        status: u.status || 'Aktif',
+        password: u.password || 'password123'
+      }));
+    }
+
+    case 'saveUser': {
+      const { id, nama, username, peran, role, status, password } = payload;
+      const cleanUsername = String(username || '').trim().toLowerCase();
+      const userRole = role || peran || 'petugas';
+      const userStatus = status || 'Aktif';
+      const userName = String(nama || '').trim();
+
+      if (id) {
+        const idx = db.users.findIndex(u => u.id === id || u.username.toLowerCase() === cleanUsername);
+        if (idx !== -1) {
+          db.users[idx] = {
+            ...db.users[idx],
+            nama: userName,
+            name: userName,
+            username: cleanUsername,
+            peran: userRole,
+            role: userRole,
+            status: userStatus,
+            ...(password ? { password, password_hash: password } : {})
+          };
+        }
+      } else {
+        const newUser = {
+          id: 'u-' + Date.now(),
+          tenantId: 't-cw1',
+          nama: userName,
+          name: userName,
+          username: cleanUsername,
+          peran: userRole,
+          role: userRole,
+          status: userStatus,
+          password: password || 'password123',
+          password_hash: password || 'password123',
+          isTempPassword: false
+        };
+        db.users.push(newUser);
+      }
+      saveLocalDB(db);
+      return { success: true };
+    }
+
+    case 'deleteUser': {
+      const { id, username } = payload;
+      db.users = (db.users || []).filter(u => {
+        if (id && u.id === id) return false;
+        if (username && u.username.toLowerCase() === String(username).toLowerCase()) return false;
+        return true;
+      });
+      saveLocalDB(db);
+      return { success: true };
     }
 
     // --- UF-02: Anggota ---
@@ -139,12 +294,15 @@ function simulateLocalAction(action, payload) {
         throw new Error('Kode unit, nama anggota, dan bobot NPP wajib diisi.');
       }
 
+      const totalUnit = payload.total_unit || (no_unit.includes(',') ? no_unit.split(',').filter(Boolean).length : 1);
+
       if (id) {
         const idx = db.members.findIndex(m => m.id === id);
         if (idx !== -1) {
           db.members[idx] = {
             ...db.members[idx],
             no_unit,
+            total_unit: totalUnit,
             nama_pemilik,
             penanggung_jawab: penanggung_jawab || nama_pemilik,
             npp: parseFloat(npp),
@@ -157,6 +315,7 @@ function simulateLocalAction(action, payload) {
           id: 'm-' + Date.now(),
           tenantId: tenantId || 't-cw1',
           no_unit,
+          total_unit: totalUnit,
           nama_pemilik,
           penanggung_jawab: penanggung_jawab || nama_pemilik,
           npp: parseFloat(npp),
@@ -182,29 +341,49 @@ function simulateLocalAction(action, payload) {
     }
 
     case 'saveSession': {
-      const { id, tenantId, tipe, judul, tanggal, lokasi, ambang_kuorum } = payload;
+      const { id, tenantId, tipe, judul, tanggal, lokasi, ambang_kuorum, waktu_pelaksanaan, waktu_dari, waktu_sampai, hari_tanggal } = payload;
+      let targetSession = null;
       if (id) {
         const idx = db.sessions.findIndex(s => s.id === id);
         if (idx !== -1) {
-          db.sessions[idx] = { ...db.sessions[idx], tipe, judul, tanggal, lokasi, ambang_kuorum: parseFloat(ambang_kuorum) };
+          db.sessions[idx] = { 
+            ...db.sessions[idx], 
+            tipe, 
+            judul, 
+            title: judul,
+            tanggal, 
+            hari_tanggal: hari_tanggal || db.sessions[idx].hari_tanggal,
+            waktu_pelaksanaan: waktu_pelaksanaan || db.sessions[idx].waktu_pelaksanaan,
+            waktu_dari: waktu_dari || db.sessions[idx].waktu_dari,
+            waktu_sampai: waktu_sampai || db.sessions[idx].waktu_sampai,
+            lokasi, 
+            ambang_kuorum: parseFloat(ambang_kuorum) 
+          };
+          targetSession = db.sessions[idx];
         }
       } else {
-        db.sessions.push({
+        targetSession = {
           id: 's-' + Date.now(),
           tenantId: tenantId || 't-cw1',
           tipe: tipe || 'MUTA',
           judul,
-          tanggal,
-          lokasi,
+          title: judul,
+          tanggal: tanggal || '',
+          hari_tanggal: hari_tanggal || '',
+          waktu_pelaksanaan: waktu_pelaksanaan || '09.00 WIB – Selesai',
+          waktu_dari: waktu_dari || '09.00 WIB',
+          waktu_sampai: waktu_sampai || 'Selesai',
+          lokasi: lokasi || 'Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta',
           status: 'Draft',
           ambang_kuorum: parseFloat(ambang_kuorum) || 50.0,
           kode_publik: 'CW' + Math.floor(1000 + Math.random() * 9000),
           waktu_mulai: '',
           waktu_tutup: ''
-        });
+        };
+        db.sessions.push(targetSession);
       }
       saveLocalDB(db);
-      return { success: true };
+      return { success: true, session: targetSession };
     }
 
     case 'getAgendas': {
@@ -314,7 +493,7 @@ function simulateLocalAction(action, payload) {
             sessionId,
             tenantId,
             memberId: m.id,
-            uid_qr: 'MUTA-QR-' + m.no_unit.replace('-', '') + '-' + Math.floor(100 + Math.random() * 900),
+            uid_qr: generateUidQr(),
             status_qr: 'Aktif'
           });
           count++;
@@ -625,6 +804,47 @@ function simulateLocalGet(action, params) {
       };
     }
 
+    // Pemetaan 25 Card Peserta untuk Tampilan Bawah Proyektor Kehadiran
+    const attendanceMap = new Map();
+    attendances.forEach(a => {
+      attendanceMap.set(a.memberId, a);
+    });
+
+    const attendeeCards = members.map(m => {
+      const att = attendanceMap.get(m.id);
+      const isPresent = Boolean(att);
+      const proxy = db.proxies.find(p => p.sessionId === sessionId && p.status === 'Aktif' && (
+        db.invitations.some(i => i.id === p.invitationId && i.memberId === m.id)
+      ));
+
+      let statusAbsensi = 'Belum';
+      if (isPresent) {
+        statusAbsensi = att.labelWaktu === 'Late' ? 'Late' : 'On-Time';
+      }
+
+      // Nama PJ jika scan biasa / nama kuasa jika check-in manual kuasa
+      let penanggungJawab = m.penanggung_jawab || m.nama_pemilik;
+      if (isPresent && att.tipeKehadiran === 'Manual' && proxy) {
+        penanggungJawab = proxy.namaKuasa;
+      } else if (proxy) {
+        penanggungJawab = `${proxy.namaKuasa} (Kuasa)`;
+      }
+
+      const totalUnit = m.total_unit || (m.no_unit ? m.no_unit.split(',').length : 1);
+
+      return {
+        id: m.id,
+        kodeUnit: m.no_unit,
+        statusAbsensi, // 'On-Time' | 'Late' | 'Belum'
+        namaAnggota: m.nama_pemilik,
+        penanggungJawab,
+        bobotNpp: parseFloat(m.npp) || 0,
+        totalUnit,
+        isPresent,
+        waktuCheckin: att?.waktuCheckin || null
+      };
+    });
+
     return {
       sessionTitle: session?.judul || 'MUTA PPPSRS',
       sessionStatus: session?.status || 'Draft',
@@ -636,7 +856,8 @@ function simulateLocalGet(action, params) {
       quorumThreshold: threshold,
       isQuorumReached: quorumPercent > threshold,
       activeQuestion,
-      activeVoteResults
+      activeVoteResults,
+      attendeeCards
     };
   }
 

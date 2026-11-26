@@ -23,3 +23,8 @@ Thumbs.db
 
 # Clasp / Apps Script local configs
 .clasp.json
+
+# Local Notes & Credentials
+README.txt
+README - Copy.txt
+*.txt

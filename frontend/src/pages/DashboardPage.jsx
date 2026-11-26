@@ -21,7 +21,7 @@ export function DashboardPage() {
       <div className="bg-gradient-to-r from-brand-primary to-blue-900 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-brand-dark-accent font-semibold uppercase tracking-wider mb-1">
-            <span>S-03 Beranda [{currentUser.role.toUpperCase()}]</span>
+            <span>Beranda [{currentUser.role.toUpperCase()}]</span>
             <span>•</span>
             <span>{currentTenant?.name}</span>
           </div>
@@ -101,7 +101,7 @@ export function DashboardPage() {
               </div>
               <div>
                 <div className="font-bold text-brand-primary text-base">Buka Kamera Scan QR</div>
-                <div className="text-xs text-content-muted">Layar check-in peserta meja registrasi (S-13)</div>
+                <div className="text-xs text-content-muted">Layar check-in peserta meja registrasi</div>
               </div>
             </a>
 
@@ -114,7 +114,7 @@ export function DashboardPage() {
               </div>
               <div>
                 <div className="font-bold text-content-main text-base">Check-in Manual</div>
-                <div className="text-xs text-content-muted">Cari nomor unit / nama peserta (S-14)</div>
+                <div className="text-xs text-content-muted">Cari nomor unit / nama peserta</div>
               </div>
             </a>
           </div>
@@ -124,19 +124,19 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <a href="#/anggota" className="p-3 bg-surface-bg rounded-lg border border-surface-border hover:border-brand-primary text-center transition-colors">
               <Users className="w-5 h-5 mx-auto text-brand-primary mb-1" />
-              <div className="text-xs font-semibold">Anggota (S-04)</div>
+              <div className="text-xs font-semibold">Anggota</div>
             </a>
             <a href={`#/sidang/${currentSession?.id}/agenda`} className="p-3 bg-surface-bg rounded-lg border border-surface-border hover:border-brand-primary text-center transition-colors">
               <Vote className="w-5 h-5 mx-auto text-brand-accent mb-1" />
-              <div className="text-xs font-semibold">Agenda Soal (S-09)</div>
+              <div className="text-xs font-semibold">Agenda Soal</div>
             </a>
             <a href="#/panitia/sidang" className="p-3 bg-surface-bg rounded-lg border border-surface-border hover:border-brand-primary text-center transition-colors">
               <Clock className="w-5 h-5 mx-auto text-status-warning mb-1" />
-              <div className="text-xs font-semibold">Kendali Sidang (S-15)</div>
+              <div className="text-xs font-semibold">Kendali Sidang</div>
             </a>
             <a href="#/laporan" className="p-3 bg-surface-bg rounded-lg border border-surface-border hover:border-brand-primary text-center transition-colors">
               <CheckCircle2 className="w-5 h-5 mx-auto text-status-success mb-1" />
-              <div className="text-xs font-semibold">Laporan (S-25)</div>
+              <div className="text-xs font-semibold">Laporan</div>
             </a>
           </div>
         )}

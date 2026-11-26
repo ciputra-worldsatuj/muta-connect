@@ -83,7 +83,7 @@ export function KendaliSidangSkeleton() {
     <SkeletonPage
       screenId="S-15"
       title="Kendali Sidang & Kuorum"
-      subtitle={`Operasi status sidang ${sessionId} dan pemantauan batas sah musyawarah (UF-08)`}
+      subtitle={`Operasi status sidang ${sessionId} dan pemantauan batas sah musyawarah`}
       roles={['admin', 'panitia']}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -264,7 +264,7 @@ export function KendaliVotingSkeleton() {
     <SkeletonPage
       screenId="S-16"
       title="Kendali Soal Pemungutan Suara"
-      subtitle={`Buka sesi voting elektronik bergaya Kahoot dan pantau penghitungan suara (UF-09)`}
+      subtitle={`Buka sesi voting elektronik bergaya Kahoot dan pantau penghitungan suara`}
       roles={['admin', 'panitia']}
     >
       <div className="space-y-6">
@@ -387,7 +387,7 @@ export function DaftarPesertaSkeleton() {
 
   const handleConfirmKick = async () => {
     if (!kickReason) {
-      alert('Alasan kick peserta wajib diisi (UF-11).');
+      alert('Alasan kick peserta wajib diisi.');
       return;
     }
 
@@ -415,7 +415,7 @@ export function DaftarPesertaSkeleton() {
     <SkeletonPage
       screenId="S-17"
       title="Daftar Peserta Sidang & Hak Suara"
-      subtitle={`Kelola kehadiran, hak suara, dan tindakan kick peserta bermasalah (UF-11)`}
+      subtitle={`Kelola kehadiran, hak suara, dan tindakan kick peserta bermasalah`}
       roles={['admin', 'panitia']}
     >
       <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-4">

@@ -189,7 +189,7 @@ export function DaftarAnggotaSkeleton() {
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Tambah Anggota</span>
+                  <span>Tambah Anggota</span>
                 </button>
               </>
             )}
@@ -227,7 +227,12 @@ export function DaftarAnggotaSkeleton() {
                 filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-bold text-brand-primary">
-                      {m.no_unit}
+                      <div>{m.no_unit}</div>
+                      {(m.total_unit > 1 || (m.no_unit && m.no_unit.includes(','))) && (
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-brand-primary mt-0.5">
+                          {m.total_unit || m.no_unit.split(',').length} Unit
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-medium text-content-main">
                       {m.nama_pemilik}
@@ -315,13 +320,15 @@ export function DaftarAnggotaSkeleton() {
               <form onSubmit={handleFormSubmit} className="space-y-3.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-content-main mb-1">Kode Unit *</label>
+                    <label className="block text-xs font-semibold text-content-main mb-1">
+                      Kode Unit * <span className="text-[10px] text-content-muted font-normal">(bisa &gt;1 unit pisah koma)</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={formData.no_unit}
                       onChange={(e) => setFormData({ ...formData, no_unit: e.target.value })}
-                      placeholder="Contoh: A-101 atau PH-01"
+                      placeholder="Contoh: TA-02.01, TA-02.02"
                       className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs"
                     />
                   </div>

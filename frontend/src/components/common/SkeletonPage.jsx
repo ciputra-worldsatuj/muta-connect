@@ -23,9 +23,6 @@ export function SkeletonPage({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-surface-border">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-primary text-white tracking-wide">
-              {screenId}
-            </span>
             <div className="flex items-center gap-1">
               {roles.map(r => (
                 <span key={r} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-bg text-content-muted border border-surface-border uppercase">

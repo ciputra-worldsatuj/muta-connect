@@ -43,8 +43,8 @@ export const ROUTES_CONFIG = [
   { path: '/panitia/peserta', screenId: 'S-17', title: 'Daftar Peserta & Kick', layout: ROUTE_LAYOUTS.APP, roles: ['admin', 'panitia'] },
   
   // Proyektor (Tab terpisah)
-  { path: '/proyektor/kehadiran', screenId: 'S-18', title: 'Dashboard Proyektor Kehadiran', layout: ROUTE_LAYOUTS.PROJECTOR, roles: ['admin', 'panitia'] },
-  { path: '/proyektor/voting', screenId: 'S-19', title: 'Dashboard Proyektor Voting', layout: ROUTE_LAYOUTS.PROJECTOR, roles: ['admin', 'panitia'] },
+  { path: '/proyektor/kehadiran', screenId: 'S-18', title: 'Dashboard Kehadiran', layout: ROUTE_LAYOUTS.PROJECTOR, roles: ['admin', 'panitia'] },
+  { path: '/proyektor/voting', screenId: 'S-19', title: 'Dashboard Voting', layout: ROUTE_LAYOUTS.PROJECTOR, roles: ['admin', 'panitia'] },
   
   // Voting Publik (HP Pemilih)
   { path: '/vote/:kodeSidang', screenId: 'S-20', title: 'Bilik Suara Pemilih', layout: ROUTE_LAYOUTS.PUBLIC, roles: ['*'] },

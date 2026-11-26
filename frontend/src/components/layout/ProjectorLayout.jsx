@@ -35,8 +35,8 @@ export function ProjectorLayout({ currentPath, route, children }) {
 
   return (
     <div className="min-h-screen bg-surface-dark-bg text-content-dark-main font-sans flex flex-col selection:bg-brand-dark-accent selection:text-surface-dark-bg dark">
-      {/* Header Proyektor Bersih & Fungsional */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-surface-dark-border bg-surface-dark-card/50">
+      {/* Header Proyektor Bersih & Fungsional (Tinggi Diperpendek) */}
+      <header className="px-6 py-2 flex items-center justify-between border-b border-surface-dark-border bg-surface-dark-card/50">
         <div className="flex items-center gap-3">
           <a
             href="#/beranda"

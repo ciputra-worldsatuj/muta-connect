@@ -13,13 +13,17 @@ import {
 export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
   const { 
     currentUser, 
-    switchRole, 
     logout, 
     currentTenant,
     sessions,
+    refreshSessions,
     currentSession,
     setCurrentSessionId 
   } = useApp();
+
+  React.useEffect(() => {
+    if (refreshSessions) refreshSessions();
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 bg-surface-card border-b border-surface-border shadow-sm">
@@ -67,13 +71,13 @@ export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
                 aria-label="Pilih Sidang Aktif"
               >
                 {sessions.map(s => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
+                  <option key={s.id} value={s.id}>{s.judul || s.title}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Aksi Cepat, Role Switcher Simulator & Profil */}
+          {/* Aksi Cepat & Profil Akun */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Tombol Buka Tab Proyektor */}
             <a
@@ -87,19 +91,12 @@ export function Navbar({ onToggleMobileMenu, isMobileMenuOpen, currentPath }) {
               <span className="hidden sm:inline">Proyektor</span>
             </a>
 
-            {/* Role Switcher Simulator */}
-            <div className="flex items-center bg-surface-bg border border-surface-border rounded-lg p-1 text-xs">
-              <UserCheck className="w-3.5 h-3.5 text-content-muted ml-1 mr-1 hidden sm:inline" />
-              <select
-                value={currentUser.role}
-                onChange={(e) => switchRole(e.target.value)}
-                className="bg-transparent font-semibold text-brand-primary uppercase text-[11px] focus:outline-none cursor-pointer"
-                title="Ganti Peran Uji Coba"
-              >
-                <option value="admin">Admin</option>
-                <option value="panitia">Panitia</option>
-                <option value="petugas">Petugas</option>
-              </select>
+            {/* Badge Peran Pengguna (Read-only, level terkunci sesuai autentikasi login) */}
+            <div className="flex items-center gap-1.5 bg-surface-bg border border-surface-border rounded-lg px-2.5 py-1.5 text-xs">
+              <UserCheck className="w-3.5 h-3.5 text-content-muted hidden sm:inline" />
+              <span className="font-bold text-brand-primary uppercase text-[11px] tracking-wide">
+                {currentUser.role}
+              </span>
             </div>
 
             {/* Tombol Keluar */}

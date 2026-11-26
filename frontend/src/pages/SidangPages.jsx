@@ -64,7 +64,7 @@ export function DaftarSidangSkeleton() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Buat Sidang Baru (S-08)</span>
+            <span>Buat Sidang Baru</span>
           </a>
         </div>
 
@@ -121,30 +121,48 @@ export function DaftarSidangSkeleton() {
 
 // --- S-08: FORM SIDANG BARU ---
 export function FormSidangSkeleton() {
-  const { currentTenant } = useApp();
+  const { currentTenant, refreshSessions, setCurrentSessionId } = useApp();
   const [tipe, setTipe] = useState('MUTA');
-  const [judul, setJudul] = useState('');
-  const [tanggal, setTanggal] = useState('');
-  const [lokasi, setLokasi] = useState('');
+  const [judul, setJudul] = useState('Musyawarah Umum Anggota (MUA) PPPSRS CW1J');
+  const [hariTanggal, setHariTanggal] = useState('Sabtu, 25 Juli 2026');
+  const [tanggal, setTanggal] = useState('2026-07-25');
+  const [waktuDari, setWaktuDari] = useState('09.00');
+  const [waktuSampai, setWaktuSampai] = useState('12.00');
+  const [isSampaiSelesai, setIsSampaiSelesai] = useState(true);
+  const [lokasi, setLokasi] = useState('Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta');
   const [ambangKuorum, setAmbangKuorum] = useState('50.0');
   const [status, setStatus] = useState({ error: '', success: false });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!judul || !tanggal || !lokasi) {
-      setStatus({ error: 'Judul, tanggal, dan lokasi sidang wajib diisi.', success: false });
+    if (!judul || !lokasi) {
+      setStatus({ error: 'Judul dan lokasi sidang wajib diisi.', success: false });
       return;
     }
 
     try {
-      await ApiService.request('saveSession', {
+      const waktuStr = isSampaiSelesai 
+        ? `${waktuDari} WIB – selesai` 
+        : `${waktuDari} WIB – ${waktuSampai} WIB`;
+
+      const res = await ApiService.request('saveSession', {
         tenantId: currentTenant?.id || 't-cw1',
         tipe,
         judul,
         tanggal,
+        hari_tanggal: hariTanggal,
+        waktu_pelaksanaan: waktuStr,
+        waktu_dari: `${waktuDari} WIB`,
+        waktu_sampai: isSampaiSelesai ? 'selesai' : `${waktuSampai} WIB`,
         lokasi,
         ambang_kuorum: parseFloat(ambangKuorum) || 50.0
       });
+
+      if (refreshSessions) refreshSessions();
+      if (res && res.session) {
+        setCurrentSessionId(res.session.id);
+      }
+
       setStatus({ error: '', success: true });
       setTimeout(() => {
         window.location.hash = '#/sidang';
@@ -157,7 +175,7 @@ export function FormSidangSkeleton() {
   return (
     <SkeletonPage
       screenId="S-08"
-      title="Buat Sidang Baru (MUTA / RUTA)"
+      title="Buat Sidang Baru"
       subtitle="Konfigurasi parameter sidang dan penentuan batas sah kuorum (Admin)"
       roles={['admin']}
     >
@@ -170,7 +188,7 @@ export function FormSidangSkeleton() {
         {status.success && (
           <div className="p-3 bg-green-50 border border-status-success text-status-success rounded-lg text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Sidang berhasil dibuat! Mengalihkan ke daftar sidang...</span>
+            <span>Sidang berhasil dibuat dan langsung dipilih! Mengalihkan ke daftar sidang...</span>
           </div>
         )}
 
@@ -216,26 +234,89 @@ export function FormSidangSkeleton() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-content-main mb-1">Tanggal Pelaksanaan *</label>
+              <label className="block text-xs font-semibold text-content-main mb-1">Hari & Tanggal Pelaksanaan *</label>
+              <input
+                type="text"
+                required
+                value={hariTanggal}
+                onChange={(e) => setHariTanggal(e.target.value)}
+                placeholder="Misal: Sabtu, 25 Juli 2026"
+                className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-content-main mb-1">Pilih Tanggal Kalender</label>
               <input
                 type="date"
-                required
                 value={tanggal}
                 onChange={(e) => setTanggal(e.target.value)}
                 className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-content-main mb-1">Lokasi Ruang Sidang *</label>
-              <input
-                type="text"
-                required
-                value={lokasi}
-                onChange={(e) => setLokasi(e.target.value)}
-                placeholder="Misal: Ballroom Lt. 5"
-                className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
-              />
+          </div>
+
+          {/* Waktu Pelaksanaan: Dari & Sampai (dengan opsi Sampai Selesai) */}
+          <div className="bg-surface-bg p-3.5 rounded-xl border border-surface-border space-y-2">
+            <label className="block text-xs font-semibold text-content-main">Waktu Pelaksanaan *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              <div>
+                <span className="text-[11px] text-content-muted block mb-1">Waktu Mulai:</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    required
+                    value={waktuDari}
+                    onChange={(e) => setWaktuDari(e.target.value)}
+                    placeholder="09.00"
+                    className="w-full px-3 py-1.5 bg-surface-card border border-surface-border rounded-lg text-sm font-mono"
+                  />
+                  <span className="text-xs font-medium text-content-muted">WIB</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] text-content-muted">Waktu Selesai:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-brand-primary">
+                    <input
+                      type="checkbox"
+                      checked={isSampaiSelesai}
+                      onChange={(e) => setIsSampaiSelesai(e.target.checked)}
+                      className="rounded border-surface-border text-brand-primary focus:ring-brand-accent"
+                    />
+                    <span>Sampai Selesai</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    disabled={isSampaiSelesai}
+                    value={isSampaiSelesai ? 'Selesai' : waktuSampai}
+                    onChange={(e) => setWaktuSampai(e.target.value)}
+                    placeholder="12.00"
+                    className={`w-full px-3 py-1.5 border border-surface-border rounded-lg text-sm font-mono ${
+                      isSampaiSelesai ? 'bg-slate-100 text-content-muted italic' : 'bg-surface-card text-content-main'
+                    }`}
+                  />
+                  {!isSampaiSelesai && <span className="text-xs font-medium text-content-muted">WIB</span>}
+                </div>
+              </div>
             </div>
+            <p className="text-[11px] text-content-muted">
+              Format di undangan: <strong className="text-brand-primary">{waktuDari} WIB – {isSampaiSelesai ? 'selesai' : waktuSampai + ' WIB'}</strong>
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-content-main mb-1">Lokasi Ruang Sidang *</label>
+            <input
+              type="text"
+              required
+              value={lokasi}
+              onChange={(e) => setLokasi(e.target.value)}
+              placeholder="Misal: Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta"
+              className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm"
+            />
           </div>
 
           <div className="pt-4 flex gap-3 border-t border-surface-border">
@@ -358,7 +439,7 @@ export function AgendaSoalSkeleton({ params }) {
 
     const pilihanArray = pilihanText.split('\n').map(p => p.trim()).filter(Boolean);
     if (pilihanArray.length < 2) {
-      alert('Minimal harus ada 2 pilihan jawaban (UF-03).');
+      alert('Minimal harus ada 2 pilihan jawaban.');
       return;
     }
 
@@ -410,7 +491,7 @@ export function AgendaSoalSkeleton({ params }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-brand-primary text-xs font-semibold hover:bg-blue-50 transition-colors shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Tambah Mata Acara Agenda</span>
+              <span>Tambah Mata Acara Agenda</span>
             </button>
             <button
               type="button"
@@ -418,7 +499,7 @@ export function AgendaSoalSkeleton({ params }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ Tambah Soal Voting</span>
+              <span>Tambah Soal Voting</span>
             </button>
           </div>
         </div>
@@ -568,7 +649,7 @@ export function AgendaSoalSkeleton({ params }) {
         <div className="space-y-4">
           {agendas.length === 0 ? (
             <div className="p-8 bg-surface-card rounded-xl border border-surface-border text-center text-xs text-content-muted">
-              Belum ada mata acara agenda. Klik tombol <strong>+ Tambah Mata Acara Agenda</strong> di atas untuk memulai.
+              Belum ada mata acara agenda. Klik tombol <strong>Tambah Mata Acara Agenda</strong> di atas untuk memulai.
             </div>
           ) : (
             agendas.map((agenda) => (
@@ -715,19 +796,40 @@ export function UndanganQRSkeleton({ params }) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Salin Text Draft Email per Undangan Anggota
+  // Salin Text Draft Email per Undangan Anggota (Template Resmi MUA)
   const handleCopyDraftEmail = (inv) => {
-    const text = `Subjek: [UNDANGAN RESMI] ${currentSession?.title || 'MUTA'} - Unit ${inv.no_unit} (${inv.nama_pemilik})\n\n` +
-      `Kepada Yth. Bapak/Ibu ${inv.nama_pemilik},\n` +
-      `Pemilik Unit: ${inv.no_unit} (NPP: ${parseFloat(inv.npp).toFixed(4)}%)\n\n` +
+    const hariTanggal = currentSession?.hari_tanggal || currentSession?.tanggal || 'Sabtu, 25 Juli 2026';
+    const waktu = currentSession?.waktu_pelaksanaan || '09.00 WIB – selesai';
+    const tempat = currentSession?.lokasi || 'Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta';
+
+    const text = `Yth. Bapak/Ibu Pemilik Unit\n` +
+      `${inv.nama_pemilik}\n\n` +
       `Dengan hormat,\n` +
-      `Pengurus ${currentTenant?.name || 'PPPSRS'} mengundang Bapak/Ibu untuk menghadiri musyawarah umum yang diselenggarakan pada:\n\n` +
-      `Tanggal: ${currentSession?.tanggal || '28 November 2026'}\n` +
-      `Lokasi: ${currentSession?.lokasi || 'Ballroom Lt. 5'}\n` +
-      `UID Verifikasi QR: ${inv.uid_qr}\n` +
-      `Tautan Bilik Suara Mandiri: https://muta-connect.github.io/#/vote/${currentSession?.kode_publik || 'CW2026'}\n\n` +
-      `Hormat kami,\n` +
-      `Panitia Pelaksana Sidang`;
+      `Bersama email ini kami sampaikan Surat Undangan Musyawarah Umum Anggota (MUA) Perhimpunan Pemilik dan Penghuni Satuan Rumah Susun (PPPSRS) Komersial Campuran Ciputra World 1 Jakarta.\n` +
+      `Adapun pelaksanaan Musyawarah Umum Anggota (MUA) sebagai berikut:\n\n` +
+      `Hari/Tanggal : ${hariTanggal}\n` +
+      `Waktu : ${waktu}\n` +
+      `Tempat : ${tempat}\n\n` +
+      `Agenda MUA\n` +
+      `I. Agenda Umum\n` +
+      `Pengesahan Tata Tertib Musyawarah; dan\n` +
+      `Pengesahan Pendirian dan Rencana Anggaran Dasar (AD) PPPSRS CW1J.\n\n` +
+      `II. Agenda Sub Bagian\n` +
+      `Pengesahan Rencana Anggaran Rumah Tangga (ART) dan Tata Tertib Hunian (House Rules), Sanksi serta Denda atas Keterlambatan;\n` +
+      `Penyampaian Laporan Keuangan Tahunan Masa Transisi yang Telah Diaudit oleh Kantor Akuntan Publik;\n` +
+      `Pemilihan Ketua Pengurus dan Ketua Pengawas PPPSRS CW1J; dan\n` +
+      `Penetapan Rencana Kegiatan Pengelolaan, Rencana Anggaran Biaya Pengelolaan Tahunan, Rencana Pemanfaatan Sinking Fund, serta Besaran Iuran Pengelolaan Lingkungan.\n\n` +
+      `Berikut adalah QR Code registrasi Anda. Harap tunjukkan kepada petugas registrasi pada saat memasuki ruangan.\n` +
+      `Kode Registrasi: ${inv.uid_qr}\n\n` +
+      `Persyaratan Peserta\n\n` +
+      `1. Pemilik yang namanya telah terdaftar dalam Daftar Buku Anggota dan telah melengkapi bukti kepemilikan (PPJB/SHMSRS/AJB) berhak mengikuti MUA.\n` +
+      `2. Apabila diwakilkan, penerima kuasa wajib mengunggah dokumen kepemilikan, surat kuasa bermeterai Rp10.000, fotokopi KTP pemberi dan penerima kuasa, serta foto terbaru penerima kuasa.\n` +
+      `3. Untuk pemilik perorangan, kuasa hanya dapat diberikan kepada anggota keluarga yang tercantum dalam satu Kartu Keluarga dengan mengunggah fotokopi KK.\n` +
+      `4. Untuk pemilik badan hukum, kuasa diberikan kepada karyawan tetap dengan mengunggah Akta Pendirian Perusahaan, Akta Susunan Direksi Terbaru, dan Surat Keputusan Pengangkatan sebagai karyawan tetap (berkop surat resmi).\n` +
+      `5. Bagi pemilik baru yang belum terdaftar sebagai anggota PPPSRS, diwajibkan mengunggah dokumen kepemilikan beserta dokumen pendukung sesuai ketentuan pada tautan registrasi.\n` +
+      `6. Penghuni yang bukan merupakan pemilik agar menyampaikan informasi ini kepada pemilik unit.\n` +
+      `7. Apabila memerlukan informasi lebih lanjut, Bapak/Ibu dapat menghubungi Bpk. Antonius Taroreh melalui 0811 185 3366.\n\n` +
+      `Demikian kami sampaikan. Atas perhatian dan partisipasi Bapak/Ibu, kami ucapkan terima kasih.`;
 
     navigator.clipboard.writeText(text);
     setCopiedId({ id: inv.id, type: 'email' });
@@ -749,9 +851,10 @@ export function UndanganQRSkeleton({ params }) {
           <button
             type="button"
             onClick={handleGenerate}
-            className="px-3.5 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
           >
-            + Generate Undangan Baru
+            <Plus className="w-3.5 h-3.5" />
+            <span>Generate Undangan Baru</span>
           </button>
         </div>
 
@@ -827,30 +930,72 @@ export function UndanganQRSkeleton({ params }) {
           </table>
         </div>
 
-        {/* Modal Pratinjau QR Code */}
+        {/* Modal Pratinjau QR Code & Undangan Resmi */}
         {selectedQR && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-surface-card rounded-2xl max-w-sm w-full p-6 text-center shadow-xl space-y-4">
-              <div>
-                <h3 className="font-bold text-base text-content-main">QR Code Peserta Sidang</h3>
-                <p className="text-xs text-content-muted mt-0.5">{selectedQR.nama_pemilik} (Unit {selectedQR.no_unit})</p>
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <div className="bg-surface-card rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-surface-border">
+              <div className="px-5 py-3 border-b border-surface-border flex items-center justify-between bg-surface-bg">
+                <div>
+                  <h3 className="font-bold text-sm text-content-main">Surat Undangan & QR Code MUA</h3>
+                  <p className="text-[11px] text-content-muted">{selectedQR.nama_pemilik} — Unit {selectedQR.no_unit}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQR(null)}
+                  className="p-1 rounded-md text-content-muted hover:text-content-main hover:bg-slate-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {qrImageUrl && (
-                <img src={qrImageUrl} alt="QR Code" className="w-48 h-48 mx-auto border border-surface-border rounded-xl p-2 bg-white" />
-              )}
+              <div className="p-5 overflow-y-auto space-y-4 text-xs text-content-main">
+                <div className="text-center bg-white p-4 rounded-xl border border-surface-border shadow-xs space-y-2">
+                  <div className="text-[11px] font-bold text-brand-primary uppercase">QR Code Registrasi Masuk Sidang</div>
+                  {qrImageUrl && (
+                    <img src={qrImageUrl} alt="QR Code" className="w-40 h-40 mx-auto border border-surface-border rounded-lg p-1.5 bg-white" />
+                  )}
+                  <div className="font-mono text-xs font-bold text-content-main bg-surface-bg py-1 px-3 rounded-full inline-block">
+                    Kode Undangan: {selectedQR.uid_qr}
+                  </div>
+                  <div className="text-[11px] text-content-muted">Tunjukkan QR code ini kepada petugas registrasi di meja lobi.</div>
+                </div>
 
-              <div className="text-[11px] font-mono text-content-muted bg-surface-bg py-1 px-2 rounded">
-                UID: {selectedQR.uid_qr}
+                <div className="bg-surface-bg p-4 rounded-xl border border-surface-border space-y-2 text-[11px] leading-relaxed">
+                  <div className="font-semibold text-content-main">
+                    Yth. Bapak/Ibu Pemilik Unit<br />
+                    <span className="text-brand-primary font-bold">{selectedQR.nama_pemilik}</span>
+                  </div>
+                  <p>
+                    Bersama email ini kami sampaikan Surat Undangan Musyawarah Umum Anggota (MUA) Perhimpunan Pemilik dan Penghuni Satuan Rumah Susun (PPPSRS) Komersial Campuran Ciputra World 1 Jakarta.
+                  </p>
+                  <div className="p-2.5 bg-white rounded-lg border border-surface-border space-y-1 font-mono text-[10px]">
+                    <div><strong>Hari/Tanggal :</strong> {currentSession?.hari_tanggal || currentSession?.tanggal || 'Sabtu, 25 Juli 2026'}</div>
+                    <div><strong>Waktu :</strong> {currentSession?.waktu_pelaksanaan || '09.00 WIB – selesai'}</div>
+                    <div><strong>Tempat :</strong> {currentSession?.lokasi || 'Function Room Artpreneur Lt. 13, Gedung Podium Ciputra World 1 Jakarta'}</div>
+                  </div>
+                  <p className="text-[10px] text-content-muted italic">
+                    Teks lengkap beserta rincian agenda dan persyaratan dapat disalin melalui tombol di bawah.
+                  </p>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedQR(null)}
-                className="w-full py-2 bg-surface-bg hover:bg-slate-100 rounded-lg text-xs font-semibold text-content-main border border-surface-border"
-              >
-                Tutup
-              </button>
+              <div className="p-3 bg-surface-bg border-t border-surface-border flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyDraftEmail(selectedQR)}
+                  className="px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>{copiedId?.id === selectedQR.id && copiedId?.type === 'email' ? 'Tersalin!' : 'Salin Seluruh Isi Email'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQR(null)}
+                  className="px-4 py-2 bg-surface-card hover:bg-slate-100 text-xs font-semibold text-content-main border border-surface-border rounded-lg"
+                >
+                  Tutup
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -910,7 +1055,7 @@ export function KelolaKuasaSkeleton({ params }) {
   const handleSaveProxy = async (e) => {
     e.preventDefault();
     if (!namaKuasa) {
-      alert('Nama penerima kuasa wajib diisi (UF-05).');
+      alert('Nama penerima kuasa wajib diisi.');
       return;
     }
 
@@ -937,7 +1082,7 @@ export function KelolaKuasaSkeleton({ params }) {
     <SkeletonPage
       screenId="S-12"
       title="Kelola Surat Kuasa Sidang"
-      subtitle="Pemberian wewenang hadir dan memilih atas nama pemilik unit (UF-05)"
+      subtitle="Pemberian wewenang hadir dan memilih atas nama pemilik unit"
       roles={['admin']}
     >
       <div className="bg-surface-card rounded-xl border border-surface-border p-5 shadow-sm space-y-4">
@@ -948,16 +1093,17 @@ export function KelolaKuasaSkeleton({ params }) {
           <button
             type="button"
             onClick={() => setShowAddProxy(!showAddProxy)}
-            className="px-3 py-1.5 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm"
           >
-            + Daftarkan Kuasa Baru
+            <Plus className="w-3.5 h-3.5" />
+            <span>Daftarkan Kuasa Baru</span>
           </button>
         </div>
 
         {/* Form Kuasa Baru */}
         {showAddProxy && (
           <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl space-y-3">
-            <h3 className="text-xs font-bold text-brand-primary">Form Pendaftaran Penerima Kuasa (UF-05)</h3>
+            <h3 className="text-xs font-bold text-brand-primary">Form Pendaftaran Penerima Kuasa</h3>
             <form onSubmit={handleSaveProxy} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>

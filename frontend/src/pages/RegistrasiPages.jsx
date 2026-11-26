@@ -360,7 +360,7 @@ export function CheckInManualSkeleton() {
 
   const handleConfirmCancel = async () => {
     if (!cancelReason) {
-      alert('Alasan pembatalan kehadiran wajib diisi (UF-07).');
+      alert('Alasan pembatalan kehadiran wajib diisi.');
       return;
     }
 
