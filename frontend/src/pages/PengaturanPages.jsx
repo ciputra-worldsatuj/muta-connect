@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ApiService } from '../api/client';
 import { SkeletonPage } from '../components/common/SkeletonPage';
-import { Building2, Users, Sliders, CheckCircle2, Plus, Edit2, Trash2, X, ShieldCheck, Key } from 'lucide-react';
+import { Building2, Users, Sliders, CheckCircle2, Plus, Edit2, Trash2, X, ShieldCheck, Key, Database, RefreshCw, Link2, AlertCircle } from 'lucide-react';
 
 /**
  * S-29, S-30, S-31: Pengaturan Tenant, Pengguna, dan Parameter Sistem
@@ -393,10 +393,37 @@ export function PengaturanPenggunaSkeleton() {
 export function PengaturanParameterSkeleton() {
   const [quorumThreshold, setQuorumThreshold] = useState('50.0');
   const [refreshInterval, setRefreshInterval] = useState('5');
+  const [apiUrl, setApiUrl] = useState(ApiService.getApiUrl());
+  const [pingStatus, setPingStatus] = useState(null); // { loading, success, message }
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setApiUrl(ApiService.getApiUrl());
+  }, []);
+
+  const handleTestPing = async () => {
+    setPingStatus({ loading: true });
+    try {
+      const res = await ApiService.ping();
+      if (res.success) {
+        setPingStatus({ loading: false, success: true, message: `Terhubung ke Google Apps Script (${res.data?.app || 'MUTA API'})!` });
+      } else {
+        setPingStatus({ loading: false, success: false, message: res.message || 'Koneksi gagal. Periksa izin deployment Web App.' });
+      }
+    } catch (e) {
+      setPingStatus({ loading: false, success: false, message: e.message || 'Gagal menghubungi server Apps Script.' });
+    }
+  };
+
+  const handleSaveApiUrl = () => {
+    ApiService.setApiUrl(apiUrl);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   const handleSave = (e) => {
     e.preventDefault();
+    ApiService.setApiUrl(apiUrl);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -405,54 +432,141 @@ export function PengaturanParameterSkeleton() {
     <SkeletonPage
       screenId="S-31"
       title="Parameter Sistem & Aturan Musyawarah"
-      subtitle="Ambang batas kuorum, interval refresh proyektor, dan aturan bisnis"
+      subtitle="Ambang batas kuorum, interval refresh proyektor, dan koneksi Google Spreadsheet"
       roles={['admin']}
     >
-      <div className="max-w-xl bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">
+      <div className="max-w-2xl space-y-6">
         {saved && (
           <div className="p-3 bg-green-50 border border-green-200 text-status-success rounded-lg text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Parameter berhasil diperbarui!</span>
+            <span>Pengaturan dan konfigurasi berhasil disimpan!</span>
           </div>
         )}
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-content-main mb-1">
-              Ambang Batas Kuorum Standar (%)
-            </label>
-            <input
-              type="number"
-              step="0.1"
-              value={quorumThreshold}
-              onChange={(e) => setQuorumThreshold(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm font-mono tabular-nums"
-            />
-            <div className="text-[10px] text-content-muted mt-1">Default 50% sesuai AD/ART PPPSRS</div>
+        {/* Panel Integrasi Google Spreadsheet & Apps Script */}
+        <div className="bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-surface-border pb-3">
+            <div className="flex items-center gap-2 font-bold text-sm text-brand-primary">
+              <Database className="w-4 h-4 text-brand-accent" />
+              <span>Koneksi Google Spreadsheet (Live Database)</span>
+            </div>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+              Zero-Cost Architecture
+            </span>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-content-main mb-1">
-              Interval Refresh Layar Proyektor (Detik)
+          <p className="text-xs text-content-muted leading-relaxed">
+            MUTA Connect menggunakan Google Sheets sebagai basis data real-time melalui Google Apps Script Web App.
+            Pastikan deployment Apps Script Anda diset ke <strong>Execute as: Me</strong> dan <strong>Who has access: Anyone</strong>.
+          </p>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-content-main">
+              URL Web App Google Apps Script (/exec):
             </label>
-            <input
-              type="number"
-              min="3"
-              max="60"
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm font-mono tabular-nums"
-            />
-            <div className="text-[10px] text-content-muted mt-1">Sesuai NFR-02: 5 detik untuk efisiensi kuota Apps Script</div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="https://script.google.com/macros/s/.../exec"
+                className="flex-1 px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleSaveApiUrl}
+                className="px-3.5 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg hover:bg-brand-primary-hover shadow-sm"
+              >
+                Simpan
+              </button>
+              <button
+                type="button"
+                onClick={handleTestPing}
+                disabled={pingStatus?.loading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs font-semibold hover:bg-blue-50 text-brand-primary"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${pingStatus?.loading ? 'animate-spin' : ''}`} />
+                <span>Tes Ping</span>
+              </button>
+            </div>
           </div>
 
-          <button
-            type="submit"
-            className="px-5 py-2 bg-brand-primary text-white rounded-lg text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
-          >
-            Simpan Parameter Sistem
-          </button>
-        </form>
+          {pingStatus && (
+            <div
+              className={`p-3 rounded-lg text-xs flex items-center gap-2 border ${
+                pingStatus.success
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}
+            >
+              {pingStatus.success ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              )}
+              <span className="font-mono text-[11px]">{pingStatus.message}</span>
+            </div>
+          )}
+
+          <div className="p-3 bg-blue-50/60 border border-blue-200/80 rounded-lg text-[11px] text-content-muted space-y-1.5">
+            <div className="font-semibold text-brand-primary flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5" />
+              <span>Petunjuk Sinkronisasi Google Sheets Tanpa Data Dummy:</span>
+            </div>
+            <ol className="list-decimal list-inside space-y-0.5 text-[11px]">
+              <li>Buka Google Spreadsheet &rarr; menu <strong>Ekstensi &rarr; Apps Script</strong>.</li>
+              <li>Pastikan kode terbaru <code>Code.js</code> sudah dipaste dan disimpan (Ctrl+S).</li>
+              <li>Pilih fungsi <code>setupDatabaseSheets</code> lalu klik <strong>Run</strong> untuk mengenerate otomatis 13 tab sheet dan kolom database.</li>
+              <li>Klik <strong>Deploy &rarr; Kelola deployment &rarr; Edit (ikon pensil) &rarr; Versi: Versi Baru &rarr; Deploy</strong>.</li>
+              <li>Klik <strong>Tes Ping</strong> di atas untuk memverifikasi koneksi hijau sukses. Semua aksi registrasi, sidang, dan voting akan tersimpan langsung di Google Sheets!</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Panel Parameter Sidang */}
+        <div className="bg-surface-card rounded-xl border border-surface-border p-6 shadow-sm space-y-4">
+          <div className="font-bold text-sm text-content-main border-b border-surface-border pb-3">
+            Aturan Bisnis & Interval Refresh
+          </div>
+
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-content-main mb-1">
+                Ambang Batas Kuorum Standar (%)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={quorumThreshold}
+                onChange={(e) => setQuorumThreshold(e.target.value)}
+                className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm font-mono tabular-nums"
+              />
+              <div className="text-[10px] text-content-muted mt-1">Default 50% sesuai AD/ART PPPSRS</div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-content-main mb-1">
+                Interval Refresh Layar Proyektor (Detik)
+              </label>
+              <input
+                type="number"
+                min="3"
+                max="60"
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(e.target.value)}
+                className="w-full px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-sm font-mono tabular-nums"
+              />
+              <div className="text-[10px] text-content-muted mt-1">Sesuai NFR-02: 5 detik untuk efisiensi kuota Apps Script</div>
+            </div>
+
+            <button
+              type="submit"
+              className="px-5 py-2 bg-brand-primary text-white rounded-lg text-xs font-semibold hover:bg-brand-primary-hover shadow-sm"
+            >
+              Simpan Parameter Sistem
+            </button>
+          </form>
+        </div>
       </div>
     </SkeletonPage>
   );

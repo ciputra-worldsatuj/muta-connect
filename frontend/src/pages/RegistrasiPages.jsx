@@ -44,10 +44,10 @@ export function ScanQRSkeleton() {
   const html5QrCodeRef = useRef(null);
 
   const quickTestUIDs = [
-    { label: 'Hendra (A-101)', uid: 'MUTA-QR-HENDRA' },
-    { label: 'Dewi (A-102)', uid: 'MUTA-QR-DEWI' },
-    { label: 'Bambang (A-103)', uid: 'MUTA-QR-BAMBANG' },
-    { label: 'Linda (B-201)', uid: 'MUTA-QR-LINDA' }
+    { label: 'Hendra (TA-03.01)', uid: 'CW1J83721' },
+    { label: 'Dewi (TA-05.01)', uid: 'CW1J28192' },
+    { label: 'Bambang (TA-05.02)', uid: 'CW1J39102' },
+    { label: 'Linda (TB-06.01)', uid: 'CW1J48192' }
   ];
 
   // Auto-standby kamera saat halaman dibuka (Revisi 1)
@@ -197,7 +197,7 @@ export function ScanQRSkeleton() {
                 type="text"
                 value={manualUid}
                 onChange={(e) => setManualUid(e.target.value)}
-                placeholder="Contoh: MUTA-QR-HENDRA"
+                placeholder="Contoh: CW1J83721"
                 className="flex-1 px-3 py-2 bg-surface-bg border border-surface-border rounded-lg text-xs font-mono"
               />
               <button

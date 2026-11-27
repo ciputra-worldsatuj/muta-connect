@@ -87,6 +87,9 @@ function doPost(e) {
       case 'saveUser':
         result = handleSaveUser(payload);
         break;
+      case 'deleteUser':
+        result = handleDeleteUser(payload);
+        break;
 
       // 2. Anggota & Unit (UF-02)
       case 'getMembers':
@@ -118,6 +121,9 @@ function doPost(e) {
       case 'saveQuestion':
         result = handleSaveQuestion(payload);
         break;
+      case 'deleteQuestion':
+        result = handleDeleteQuestion(payload);
+        break;
 
       // 4. Undangan & Kuasa (UF-04, UF-05)
       case 'generateInvitations':
@@ -134,6 +140,9 @@ function doPost(e) {
         break;
 
       // 5. Registrasi & Check-in (UF-06, UF-07)
+      case 'getAttendances':
+        result = handleGetAttendances(payload.sessionId);
+        break;
       case 'checkinQR':
         result = handleCheckinQR(payload);
         break;
@@ -291,15 +300,23 @@ function writeAuditLog(tenantId, userId, aksi, detail) {
 // --- UF-01: Login & Pengguna ---
 function handleLogin(payload) {
   const { username, password } = payload;
+  const cleanUsername = String(username || '').trim().toLowerCase();
   const users = getRows('users');
-  const user = users.find(u => u.username === username && u.status === 'aktif');
+  const user = users.find(u => String(u.username || '').trim().toLowerCase() === cleanUsername);
 
   if (!user) {
     throw new Error('Username atau password salah.');
   }
 
+  const userStatus = String(user.status || 'aktif').toLowerCase();
+  if (userStatus === 'nonaktif' || userStatus === 'inactive') {
+    throw new Error('Akun @' + user.username + ' sedang dinonaktifkan. Hubungi Administrator.');
+  }
+
   // Password validation (simulasi hash check)
-  if (user.password_hash !== password && password !== 'password123') {
+  const inputPass = String(password || '');
+  const storedPass = String(user.password_hash || '');
+  if (storedPass && inputPass !== storedPass && inputPass !== 'password123') {
     throw new Error('Username atau password salah.');
   }
 
@@ -309,10 +326,11 @@ function handleLogin(payload) {
     token: 'jwt-sim-' + Utilities.getUuid(),
     user: {
       id: user.id,
-      tenantId: user.tenant_id,
+      tenantId: user.tenant_id || 't-cw1',
       username: user.username,
       nama: user.nama,
       role: user.peran,
+      peran: user.peran,
       isTempPassword: user.is_temp_password === 'true' || user.is_temp_password === true
     }
   };
@@ -343,39 +361,66 @@ function handleGetUsers(tenantId) {
     username: u.username,
     nama: u.nama,
     peran: u.peran,
-    status: u.status
+    role: u.peran,
+    status: u.status || 'Aktif'
   }));
 }
 
 function handleSaveUser(payload) {
-  const { id, tenantId, username, nama, peran, password } = payload;
+  const { id, tenantId, username, nama, peran, password, status } = payload;
   const users = getRows('users');
-  const existing = users.find(u => u.username === username && u.id !== id);
+  const cleanUsername = String(username || '').trim().toLowerCase();
+  const existing = users.find(u => String(u.username || '').trim().toLowerCase() === cleanUsername && u.id !== id);
   if (existing) throw new Error('Username sudah digunakan.');
 
   if (id) {
     const user = users.find(u => u.id === id);
     if (!user) throw new Error('Pengguna tidak ditemukan.');
-    updateRow('users', user._rowIndex, { nama, peran });
+    const updates = { nama, peran };
+    if (status) updates.status = status;
+    if (password) {
+      updates.password_hash = password;
+      updates.is_temp_password = 'false';
+    }
+    updateRow('users', user._rowIndex, updates);
   } else {
     appendRow('users', {
       id: 'u-' + Utilities.getUuid(),
-      tenant_id: tenantId,
-      username: username,
+      tenant_id: tenantId || 't-cw1',
+      username: cleanUsername,
       password_hash: password || 'password123',
       nama: nama,
       peran: peran,
-      is_temp_password: 'true',
-      status: 'aktif',
+      is_temp_password: 'false',
+      status: status || 'Aktif',
       created_at: new Date().toISOString()
     });
   }
   return { success: true };
 }
 
+function handleDeleteUser(payload) {
+  const { id, username } = payload;
+  const sheet = getSheet('users');
+  const users = getRows('users');
+  const cleanUsername = String(username || '').trim().toLowerCase();
+  const target = users.find(u => (id && u.id === id) || (username && String(u.username || '').trim().toLowerCase() === cleanUsername));
+  if (target) {
+    sheet.deleteRow(target._rowIndex);
+    writeAuditLog(target.tenant_id, 'admin', 'HAPUS_PENGGUNA', { username: target.username });
+  }
+  return { success: true };
+}
+
 // --- UF-02: Anggota & Impor CSV ---
 function handleGetMembers(tenantId) {
-  return getRows('members').filter(m => !tenantId || m.tenant_id === tenantId);
+  const members = getRows('members').filter(m => !tenantId || m.tenant_id === tenantId);
+  return members.map(m => ({
+    ...m,
+    tenantId: m.tenant_id || tenantId || 't-cw1',
+    npp: Number(m.npp) || 0,
+    total_unit: Number(m.total_unit) || 1
+  }));
 }
 
 function handleImportMembersCSV(payload) {
@@ -457,30 +502,47 @@ function handleGetSessions(tenantId) {
 }
 
 function handleSaveSession(payload) {
-  const { id, tenantId, tipe, judul, tanggal, lokasi, ambang_kuorum } = payload;
-  const kodePublik = 'MUTA' + Math.floor(1000 + Math.random() * 9000);
+  const { id, tenantId, tipe, judul, tanggal, hari_tanggal, waktu_pelaksanaan, waktu_dari, waktu_sampai, lokasi, ambang_kuorum } = payload;
+  const kodePublik = 'CW' + Math.floor(1000 + Math.random() * 9000);
 
   if (id) {
     const session = getRows('sessions').find(s => s.id === id);
     if (!session) throw new Error('Sidang tidak ditemukan.');
-    updateRow('sessions', session._rowIndex, { tipe, judul, tanggal, lokasi, ambang_kuorum });
+    const updates = {
+      tipe: tipe || session.tipe,
+      judul: judul || session.judul,
+      tanggal: tanggal || session.tanggal,
+      hari_tanggal: hari_tanggal || session.hari_tanggal || tanggal,
+      waktu_pelaksanaan: waktu_pelaksanaan || session.waktu_pelaksanaan,
+      waktu_dari: waktu_dari || session.waktu_dari,
+      waktu_sampai: waktu_sampai || session.waktu_sampai,
+      lokasi: lokasi || session.lokasi,
+      ambang_kuorum: ambang_kuorum || session.ambang_kuorum
+    };
+    updateRow('sessions', session._rowIndex, updates);
+    return { success: true, session: { ...session, ...updates } };
   } else {
-    appendRow('sessions', {
+    const newSession = {
       id: 's-' + Utilities.getUuid(),
-      tenant_id: tenantId,
+      tenant_id: tenantId || 't-cw1',
       tipe: tipe || 'MUTA',
-      judul,
-      tanggal,
-      lokasi,
+      judul: judul || 'Musyawarah Umum Anggota (MUA) PPPSRS CW1J',
+      tanggal: tanggal || '',
+      hari_tanggal: hari_tanggal || tanggal || '',
+      waktu_pelaksanaan: waktu_pelaksanaan || '09.00 WIB – selesai',
+      waktu_dari: waktu_dari || '09:00',
+      waktu_sampai: waktu_sampai || 'selesai',
+      lokasi: lokasi || 'Function Room Artpreneur Lt. 13, Ciputra World 1 Jakarta',
       status: 'Draft',
       ambang_kuorum: ambang_kuorum || CONFIG.DEFAULT_QUORUM_THRESHOLD,
       kode_publik: kodePublik,
       waktu_mulai: '',
       waktu_tutup: '',
       created_at: new Date().toISOString()
-    });
+    };
+    appendRow('sessions', newSession);
+    return { success: true, session: newSession };
   }
-  return { success: true };
 }
 
 function handleGetAgendas(sessionId) {
@@ -547,10 +609,30 @@ function handleSaveQuestion(payload) {
   return { success: true };
 }
 
+function handleDeleteQuestion(payload) {
+  const { id } = payload;
+  const sheet = getSheet('questions');
+  const rows = getRows('questions');
+  const q = rows.find(x => x.id === id);
+  if (q) {
+    sheet.deleteRow(q._rowIndex);
+  }
+  return { success: true };
+}
+
 // --- UF-04 & UF-05: Undangan & Kuasa ---
+function generateUidQrCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 5; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return 'CW1J' + rand;
+}
+
 function handleGenerateInvitations(payload) {
   const { sessionId, tenantId } = payload;
-  const members = getRows('members').filter(m => m.tenant_id === tenantId);
+  const members = getRows('members').filter(m => !tenantId || m.tenant_id === tenantId);
   const existing = getRows('invitations').filter(inv => inv.session_id === sessionId);
 
   let generated = 0;
@@ -560,9 +642,9 @@ function handleGenerateInvitations(payload) {
       appendRow('invitations', {
         id: 'inv-' + Utilities.getUuid(),
         session_id: sessionId,
-        tenant_id: tenantId,
+        tenant_id: tenantId || 't-cw1',
         member_id: m.id,
-        uid_qr: 'MUTA-QR-' + Utilities.getUuid().slice(0, 8).toUpperCase(),
+        uid_qr: generateUidQrCode(),
         status_qr: 'Aktif',
         created_at: new Date().toISOString()
       });
@@ -621,6 +703,11 @@ function handleCancelProxy(payload) {
 }
 
 // --- UF-06 & UF-07: Registrasi & Check-in ---
+function handleGetAttendances(sessionId) {
+  const attendances = getRows('attendances');
+  return attendances.filter(a => (!sessionId || a.session_id === sessionId) && a.status === 'HADIR');
+}
+
 function handleCheckinQR(payload) {
   const { uid, sessionId, petugasId } = payload;
   const session = getRows('sessions').find(s => s.id === sessionId);

@@ -82,8 +82,17 @@ function saveLocalDB(db) {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_GAS_API_URL || '';
-const USE_REMOTE_API = Boolean(API_BASE_URL && !API_BASE_URL.includes('placeholder'));
+export function getApiBaseUrl() {
+  const custom = localStorage.getItem('muta_gas_api_url');
+  if (custom && custom.trim().startsWith('http')) {
+    return custom.trim();
+  }
+  const envUrl = import.meta.env.VITE_GAS_API_URL;
+  if (envUrl && !envUrl.includes('placeholder')) {
+    return envUrl.trim();
+  }
+  return 'https://script.google.com/macros/s/AKfycbwDYLU2pnfzim-8VxNRbxMOKJygVLBCfrYzXfE-DOOYH3o54L-s8IE2P8TQmqXM1-5u/exec';
+}
 
 export class ApiService {
   /**
@@ -91,9 +100,12 @@ export class ApiService {
    * Dilengkapi Automatic Fallback ke Local Storage bila Remote API tidak terjangkau / CORS / offline.
    */
   static async request(action, payload = {}, token = null) {
-    if (USE_REMOTE_API) {
+    const baseUrl = getApiBaseUrl();
+    const useRemote = Boolean(baseUrl && !baseUrl.includes('placeholder'));
+
+    if (useRemote) {
       try {
-        const response = await fetch(API_BASE_URL, {
+        const response = await fetch(baseUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action, payload, token, timestamp: Date.now() })
@@ -117,9 +129,12 @@ export class ApiService {
   }
 
   static async get(action, params = {}) {
-    if (USE_REMOTE_API) {
+    const baseUrl = getApiBaseUrl();
+    const useRemote = Boolean(baseUrl && !baseUrl.includes('placeholder'));
+
+    if (useRemote) {
       try {
-        const url = new URL(API_BASE_URL);
+        const url = new URL(baseUrl);
         url.searchParams.set('action', action);
         Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
         const response = await fetch(url.toString(), { method: 'GET' });
@@ -134,6 +149,35 @@ export class ApiService {
     }
 
     return simulateLocalGet(action, params);
+  }
+
+  static async ping() {
+    const baseUrl = getApiBaseUrl();
+    if (!baseUrl) return { success: false, message: 'URL Web App API belum diset.' };
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set('action', 'ping');
+      const response = await fetch(url.toString(), { method: 'GET' });
+      const res = await response.json();
+      if (res && res.success) {
+        return { success: true, data: res.data };
+      }
+      return { success: false, message: 'Respons API bukan format JSON sukses.' };
+    } catch (err) {
+      return { success: false, message: err.message || 'Gagal menghubungi server Apps Script.' };
+    }
+  }
+
+  static getApiUrl() {
+    return getApiBaseUrl();
+  }
+
+  static setApiUrl(url) {
+    if (!url || !url.trim()) {
+      localStorage.removeItem('muta_gas_api_url');
+    } else {
+      localStorage.setItem('muta_gas_api_url', url.trim());
+    }
   }
 
   // Helper reset data simulasi untuk pengujian ulang
