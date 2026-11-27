@@ -33,6 +33,11 @@ export function DaftarAnggotaSkeleton() {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [expandedUnits, setExpandedUnits] = useState({});
+
+  const toggleExpandUnit = (id) => {
+    setExpandedUnits(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Modal Tambah / Edit Anggota
   const [showModal, setShowModal] = useState(false);
@@ -82,12 +87,12 @@ export function DaftarAnggotaSkeleton() {
   const handleOpenEdit = (member) => {
     setEditingMember(member);
     setFormData({
-      no_unit: member.no_unit || '',
+      no_unit: String(member.no_unit || ''),
       npp: String(member.npp || ''),
-      nama_pemilik: member.nama_pemilik || '',
-      penanggung_jawab: member.penanggung_jawab || member.nama_pemilik || '',
-      no_hp: member.no_hp || '',
-      email: member.email || ''
+      nama_pemilik: String(member.nama_pemilik || ''),
+      penanggung_jawab: String(member.penanggung_jawab || member.nama_pemilik || ''),
+      no_hp: String(member.no_hp || ''),
+      email: String(member.email || '')
     });
     setFormError('');
     setFormSuccess(false);
@@ -109,28 +114,38 @@ export function DaftarAnggotaSkeleton() {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    const { no_unit, npp, nama_pemilik, penanggung_jawab, no_hp, email } = formData;
+    const cleanNoUnit = String(formData.no_unit || '').trim();
+    const rawNpp = String(formData.npp || '').trim().replace(',', '.');
+    const parsedNpp = parseFloat(rawNpp);
+    const cleanNama = String(formData.nama_pemilik || '').trim();
+    const cleanPJ = String(formData.penanggung_jawab || formData.nama_pemilik || '').trim();
+    const cleanHp = String(formData.no_hp || '').trim();
+    const cleanEmail = String(formData.email || '').trim();
 
-    if (!no_unit || !npp || !nama_pemilik || !penanggung_jawab || !no_hp || !email) {
+    if (!cleanNoUnit || !rawNpp || !cleanNama || !cleanPJ || !cleanHp || !cleanEmail) {
       setFormError('Seluruh field bertanda bintang (*) wajib diisi.');
       return;
     }
 
-    if (parseFloat(npp) <= 0 || isNaN(parseFloat(npp))) {
-      setFormError('Bobot NPP harus berupa angka lebih besar dari 0.');
+    if (isNaN(parsedNpp) || parsedNpp <= 0) {
+      setFormError('Bobot NPP harus berupa angka lebih besar dari 0 (contoh: 70.6482 atau 70,6482).');
       return;
     }
+
+    const units = cleanNoUnit.split(/[,;\n]/).map(u => u.trim()).filter(Boolean);
+    const totalUnit = units.length || 1;
 
     try {
       await ApiService.request('saveMember', {
         id: editingMember ? editingMember.id : null,
         tenantId: currentTenant?.id || 't-cw1',
-        no_unit: no_unit.trim(),
-        npp: parseFloat(npp),
-        nama_pemilik: nama_pemilik.trim(),
-        penanggung_jawab: penanggung_jawab.trim(),
-        no_hp: no_hp.trim(),
-        email: email.trim()
+        no_unit: cleanNoUnit,
+        total_unit: totalUnit,
+        npp: parsedNpp,
+        nama_pemilik: cleanNama,
+        penanggung_jawab: cleanPJ,
+        no_hp: cleanHp,
+        email: cleanEmail
       });
 
       setFormSuccess(true);
@@ -224,55 +239,76 @@ export function DaftarAnggotaSkeleton() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-bold text-brand-primary">
-                      <div>{m.no_unit}</div>
-                      {(m.total_unit > 1 || (m.no_unit && m.no_unit.includes(','))) && (
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-brand-primary mt-0.5">
-                          {m.total_unit || m.no_unit.split(',').length} Unit
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-content-main">
-                      {m.nama_pemilik}
-                    </td>
-                    <td className="px-4 py-3 text-content-main font-semibold">
-                      {m.penanggung_jawab || m.nama_pemilik}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-content-main tabular-nums">
-                      {parseFloat(m.npp).toFixed(4)}%
-                    </td>
-                    <td className="px-4 py-3 font-mono text-content-muted">
-                      {m.no_hp || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-content-muted">
-                      {m.email || '-'}
-                    </td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(m)}
-                            className="p-1.5 rounded text-brand-primary hover:bg-blue-50 border border-surface-border transition-colors"
-                            title="Edit Anggota"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMember(m)}
-                            className="p-1.5 rounded text-status-danger hover:bg-red-50 border border-surface-border transition-colors"
-                            title="Hapus Anggota"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                filtered.map((m) => {
+                  const allUnits = String(m.no_unit || '').split(/[,;]/).map(u => u.trim()).filter(Boolean);
+                  const isExpanded = Boolean(expandedUnits[m.id]);
+                  const totalUnitCount = m.total_unit || allUnits.length || 1;
+                  const hasMore = allUnits.length > 2;
+                  const displayedUnits = (hasMore && !isExpanded) ? allUnits.slice(0, 2) : allUnits;
+
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-bold text-brand-primary align-top">
+                        <div className="leading-snug">
+                          {displayedUnits.join(', ')}
+                          {hasMore && !isExpanded && <span className="text-content-muted">, ...</span>}
+                        </div>
+                        {/* Posisi more di bawahnya tepat samping 2 unit */}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-brand-primary">
+                            {totalUnitCount} Unit
+                          </span>
+                          {hasMore && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandUnit(m.id)}
+                              className="text-[10px] font-bold text-brand-accent hover:underline inline-flex items-center gap-0.5 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200"
+                            >
+                              {isExpanded ? 'Tutup' : `+${allUnits.length - 2} more`}
+                            </button>
+                          )}
                         </div>
                       </td>
-                    )}
-                  </tr>
-                ))
+                      <td className="px-4 py-3 font-medium text-content-main align-top">
+                        {m.nama_pemilik}
+                      </td>
+                      <td className="px-4 py-3 text-content-main font-semibold align-top">
+                        {m.penanggung_jawab || m.nama_pemilik}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-content-main tabular-nums align-top">
+                        {parseFloat(m.npp).toFixed(4)}%
+                      </td>
+                      <td className="px-4 py-3 font-mono text-content-muted align-top">
+                        {m.no_hp || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-content-muted align-top">
+                        {m.email || '-'}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-right align-top">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(m)}
+                              className="p-1.5 rounded text-brand-primary hover:bg-blue-50 border border-surface-border transition-colors"
+                              title="Edit Anggota"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMember(m)}
+                              className="p-1.5 rounded text-status-danger hover:bg-red-50 border border-surface-border transition-colors"
+                              title="Hapus Anggota"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
             {filtered.length > 0 && (
@@ -435,28 +471,38 @@ export function FormAnggotaSkeleton() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { no_unit, npp, nama_pemilik, penanggung_jawab, no_hp, email } = formData;
+    const cleanNoUnit = String(formData.no_unit || '').trim();
+    const rawNpp = String(formData.npp || '').trim().replace(',', '.');
+    const parsedNpp = parseFloat(rawNpp);
+    const cleanNama = String(formData.nama_pemilik || '').trim();
+    const cleanPJ = String(formData.penanggung_jawab || formData.nama_pemilik || '').trim();
+    const cleanHp = String(formData.no_hp || '').trim();
+    const cleanEmail = String(formData.email || '').trim();
 
-    if (!no_unit || !npp || !nama_pemilik || !penanggung_jawab || !no_hp || !email) {
+    if (!cleanNoUnit || !rawNpp || !cleanNama || !cleanPJ || !cleanHp || !cleanEmail) {
       setStatus({ error: 'Seluruh field bertanda bintang (*) wajib diisi.', success: false, loading: false });
       return;
     }
 
-    if (parseFloat(npp) <= 0 || isNaN(parseFloat(npp))) {
-      setStatus({ error: 'Bobot NPP harus berupa angka lebih besar dari 0.', success: false, loading: false });
+    if (isNaN(parsedNpp) || parsedNpp <= 0) {
+      setStatus({ error: 'Bobot NPP harus berupa angka lebih besar dari 0 (contoh: 70.6482 atau 70,6482).', success: false, loading: false });
       return;
     }
+
+    const units = cleanNoUnit.split(/[,;\n]/).map(u => u.trim()).filter(Boolean);
+    const totalUnit = units.length || 1;
 
     setStatus({ error: '', success: false, loading: true });
     try {
       await ApiService.request('saveMember', {
         tenantId: currentTenant?.id || 't-cw1',
-        no_unit: no_unit.trim(),
-        npp: parseFloat(npp),
-        nama_pemilik: nama_pemilik.trim(),
-        penanggung_jawab: penanggung_jawab.trim(),
-        no_hp: no_hp.trim(),
-        email: email.trim()
+        no_unit: cleanNoUnit,
+        total_unit: totalUnit,
+        npp: parsedNpp,
+        nama_pemilik: cleanNama,
+        penanggung_jawab: cleanPJ,
+        no_hp: cleanHp,
+        email: cleanEmail
       });
       setStatus({ error: '', success: true, loading: false });
       setTimeout(() => {

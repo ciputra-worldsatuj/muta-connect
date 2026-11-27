@@ -152,6 +152,9 @@ function doPost(e) {
       case 'cancelCheckin':
         result = handleCancelCheckin(payload);
         break;
+      case 'confirmAttendance':
+        result = handleConfirmAttendance(payload);
+        break;
 
       // 6. Kendali Sidang & Kuorum (UF-08, UF-11)
       case 'startSession':
@@ -461,24 +464,43 @@ function handleImportMembersCSV(payload) {
 
 function handleSaveMember(payload) {
   const { id, tenantId, no_unit, nama_pemilik, penanggung_jawab, npp, email, no_hp } = payload;
-  if (!no_unit || !nama_pemilik || !npp || npp <= 0) {
-    throw new Error('Kode unit, nama anggota, dan bobot NPP wajib diisi.');
+  const cleanNoUnit = String(no_unit || '').trim();
+  const cleanNama = String(nama_pemilik || '').trim();
+  const cleanPJ = String(penanggung_jawab || nama_pemilik || '').trim();
+  const cleanHp = String(no_hp || '').trim();
+  const cleanEmail = String(email || '').trim();
+  const parsedNpp = parseFloat(String(npp).replace(',', '.'));
+
+  if (!cleanNoUnit || !cleanNama || isNaN(parsedNpp) || parsedNpp <= 0) {
+    throw new Error('Kode unit, nama anggota, dan bobot NPP wajib diisi dengan benar.');
   }
+
+  const units = cleanNoUnit.split(/[,;\n]/).map(u => u.trim()).filter(Boolean);
+  const totalUnit = payload.total_unit || units.length || 1;
 
   if (id) {
     const member = getRows('members').find(m => m.id === id);
     if (!member) throw new Error('Anggota tidak ditemukan.');
-    updateRow('members', member._rowIndex, { no_unit, nama_pemilik, penanggung_jawab: penanggung_jawab || nama_pemilik, npp, email, no_hp });
+    updateRow('members', member._rowIndex, {
+      no_unit: cleanNoUnit,
+      nama_pemilik: cleanNama,
+      penanggung_jawab: cleanPJ,
+      npp: parsedNpp,
+      total_unit: totalUnit,
+      email: cleanEmail,
+      no_hp: cleanHp
+    });
   } else {
     appendRow('members', {
       id: 'm-' + Utilities.getUuid(),
-      tenant_id: tenantId,
-      no_unit,
-      nama_pemilik,
-      penanggung_jawab: penanggung_jawab || nama_pemilik,
-      npp,
-      email,
-      no_hp,
+      tenant_id: tenantId || 't-cw1',
+      no_unit: cleanNoUnit,
+      nama_pemilik: cleanNama,
+      penanggung_jawab: cleanPJ,
+      npp: parsedNpp,
+      total_unit: totalUnit,
+      email: cleanEmail,
+      no_hp: cleanHp,
       created_at: new Date().toISOString()
     });
   }
@@ -622,12 +644,7 @@ function handleDeleteQuestion(payload) {
 
 // --- UF-04 & UF-05: Undangan & Kuasa ---
 function generateUidQrCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let rand = '';
-  for (let i = 0; i < 5; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return 'CW1J' + rand;
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 function handleGenerateInvitations(payload) {
@@ -1030,6 +1047,39 @@ function handleGetProjectorData(tenantId, sessionId) {
   };
 }
 
+function handleConfirmAttendance(payload) {
+  const { sessionId, uid, memberId } = payload;
+  const session = getRows('sessions').find(s => s.id === sessionId || s.kode_publik === sessionId);
+  if (!session) throw new Error('Sidang tidak valid.');
+
+  const targetSessionId = session.id;
+  const attendances = getRows('attendances').filter(a => a.session_id === targetSessionId && a.status === 'HADIR');
+  const alreadyPresent = attendances.find(a => a.member_id === memberId);
+  if (alreadyPresent) {
+    return { success: true, message: 'Sudah berstatus HADIR.' };
+  }
+
+  appendRow('attendances', {
+    id: 'att-' + Utilities.getUuid(),
+    session_id: targetSessionId,
+    member_id: memberId,
+    tipe_kehadiran: 'Self_Confirm',
+    label_waktu: session.status === 'Berjalan' ? 'Late' : 'On time',
+    status: 'HADIR',
+    waktu_checkin: new Date().toISOString(),
+    petugas_id: 'voter-self'
+  });
+
+  if (uid) {
+    const inv = getRows('invitations').find(i => i.session_id === targetSessionId && String(i.uid_qr).trim() === String(uid).trim());
+    if (inv) {
+      updateRow('invitations', inv._rowIndex, { status_qr: 'Terpakai' });
+    }
+  }
+
+  return { success: true };
+}
+
 function handleGetPublicVoterData(tenantId, sessionId) {
   // Hanya data publik tanpa nomor HP / email pribadi (BR-13)
   const session = getRows('sessions').find(s => s.id === sessionId || s.kode_publik === sessionId);
@@ -1040,20 +1090,42 @@ function handleGetPublicVoterData(tenantId, sessionId) {
   const kickedMemberIds = new Set(getRows('kicked_records').filter(k => k.session_id === session.id).map(k => k.member_id));
 
   const members = getRows('members').filter(m => m.tenant_id === session.tenant_id);
+  const invitations = getRows('invitations').filter(inv => inv.session_id === session.id);
+  const proxies = getRows('proxies').filter(p => p.session_id === session.id && p.status === 'Aktif');
+
   const eligibleVoters = members
     .filter(m => presentMemberIds.has(m.id) && !kickedMemberIds.has(m.id))
     .map(m => ({
       id: m.id,
       nama: m.nama_pemilik,
-      unit: m.no_unit
+      unit: m.no_unit,
+      npp: Number(m.npp || 0)
     }));
+
+  const votersByUid = invitations.map(inv => {
+    const member = members.find(m => m.id === inv.member_id) || {};
+    const proxy = proxies.find(p => p.invitation_id === inv.id);
+    return {
+      uid: String(inv.uid_qr || '').trim(),
+      memberId: inv.member_id,
+      no_unit: member.no_unit || inv.no_unit,
+      nama_anggota: member.nama_pemilik || inv.nama_pemilik,
+      penanggung_jawab: member.penanggung_jawab || member.nama_pemilik,
+      nama_kuasa: proxy ? proxy.nama_kuasa : '',
+      npp: Number(member.npp || inv.npp || 0),
+      isPresent: presentMemberIds.has(inv.member_id),
+      isKicked: kickedMemberIds.has(inv.member_id)
+    };
+  });
 
   const activeQuestion = getRows('questions').find(q => q.session_id === session.id && q.status === 'Dibuka');
 
   return {
     sessionId: session.id,
     sessionTitle: session.judul,
+    sessionKodePublik: session.kode_publik,
     eligibleVoters,
+    votersByUid,
     activeQuestion: activeQuestion ? {
       id: activeQuestion.id,
       pertanyaan: activeQuestion.pertanyaan,
@@ -1061,6 +1133,10 @@ function handleGetPublicVoterData(tenantId, sessionId) {
       pilihan: JSON.parse(activeQuestion.pilihan_json || '[]'),
       maksPilihan: activeQuestion.maks_pilihan,
       durasiDetik: activeQuestion.durasi_detik,
+      waktuBuka: activeQuestion.waktu_buka
+    } : null
+  };
+}
       waktuBuka: activeQuestion.waktu_buka
     } : null
   };
@@ -1293,14 +1369,14 @@ function setupDatabaseSheets() {
   ];
   dummyQuestions.forEach(q => sheetQuestions.appendRow(q));
 
-  // 8. Data Dummy: invitations (25 Undangan dengan format QR CW1JXXXXX)
+  // 8. Data Dummy: invitations (25 Undangan dengan format QR 4 Digit Angka)
   const sheetInvitations = ss.getSheetByName('invitations');
   const qrCodes = [
-    'CW1J10294', 'CW1J83721', 'CW1J91823', 'CW1J28192', 'CW1J39102',
-    'CW1J48192', 'CW1J59102', 'CW1J68192', 'CW1J79102', 'CW1J88192',
-    'CW1J99102', 'CW1J12345', 'CW1J23456', 'CW1J34567', 'CW1J45678',
-    'CW1J56789', 'CW1J67890', 'CW1J78901', 'CW1J89012', 'CW1J90123',
-    'CW1J01234', 'CW1J11223', 'CW1J22334', 'CW1J33445', 'CW1J44556'
+    '1001', '1002', '1003', '1004', '1005',
+    '1006', '1007', '1008', '1009', '1010',
+    '1011', '1012', '1013', '1014', '1015',
+    '1016', '1017', '1018', '1019', '1020',
+    '1021', '1022', '1023', '1024', '1025'
   ];
 
   dummyMembers.forEach((m, idx) => {

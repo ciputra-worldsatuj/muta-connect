@@ -9,12 +9,7 @@ import { INITIAL_SEED } from './mockData';
 const STORAGE_KEY = 'muta_connect_db_v3';
 
 function generateUidQr() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let rand = '';
-  for (let i = 0; i < 5; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return 'CW1J' + rand;
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 function getLocalDB() {
@@ -91,64 +86,63 @@ export function getApiBaseUrl() {
   if (envUrl && !envUrl.includes('placeholder')) {
     return envUrl.trim();
   }
-  return 'https://script.google.com/macros/s/AKfycbwDYLU2pnfzim-8VxNRbxMOKJygVLBCfrYzXfE-DOOYH3o54L-s8IE2P8TQmqXM1-5u/exec';
+  return 'https://script.google.com/macros/s/AKfycbyHdYre0NdZrAV0Luq6qtY9l0t0Hq6Y-i18S63QnmLJJavPnbNI9yqnoKsn0iVSB2q4LQ/exec';
 }
 
 export class ApiService {
   /**
-   * Router Aksi Terpadu (Lokal Simulator atau Google Apps Script)
-   * Dilengkapi Automatic Fallback ke Local Storage bila Remote API tidak terjangkau / CORS / offline.
+   * Router Aksi Terpadu Langsung ke Google Apps Script Web App (Live Google Sheets)
+   * Mengacu pada instruksi: Data Dummy dinonaktifkan sepenuhnya.
    */
   static async request(action, payload = {}, token = null) {
     const baseUrl = getApiBaseUrl();
-    const useRemote = Boolean(baseUrl && !baseUrl.includes('placeholder'));
-
-    if (useRemote) {
-      try {
-        const response = await fetch(baseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action, payload, token, timestamp: Date.now() })
-        });
-        const res = await response.json();
-        if (res && res.success) {
-          return res.data;
-        }
-        if (res && res.error) {
-          throw new Error(res.error.message || 'Gagal memproses request.');
-        }
-      } catch (err) {
-        console.warn(`[ApiService] Remote API error (${err.message}) saat aksi "${action}". Mengalihkan otomatis ke local simulator.`);
-        // Fallback otomatis ke Local Simulator agar operasional pengguna tidak terputus
-        return simulateLocalAction(action, payload);
-      }
+    if (!baseUrl) {
+      throw new Error('URL Google Apps Script belum dikonfigurasi.');
     }
 
-    // Eksekusi Lokal Simulator
-    return simulateLocalAction(action, payload);
+    try {
+      const response = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, payload, token, timestamp: Date.now() })
+      });
+      const res = await response.json();
+      if (res && res.success) {
+        return res.data;
+      }
+      if (res && res.error) {
+        throw new Error(res.error.message || 'Gagal memproses transaksi di Google Sheets.');
+      }
+      throw new Error('Respons tidak valid dari server Google Apps Script.');
+    } catch (err) {
+      console.error(`[ApiService] Request Error pada aksi "${action}":`, err);
+      throw err;
+    }
   }
 
   static async get(action, params = {}) {
     const baseUrl = getApiBaseUrl();
-    const useRemote = Boolean(baseUrl && !baseUrl.includes('placeholder'));
-
-    if (useRemote) {
-      try {
-        const url = new URL(baseUrl);
-        url.searchParams.set('action', action);
-        Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-        const response = await fetch(url.toString(), { method: 'GET' });
-        const res = await response.json();
-        if (res && res.success) {
-          return res.data;
-        }
-      } catch (err) {
-        console.warn(`[ApiService] Remote API GET error (${err.message}). Mengalihkan otomatis ke local simulator.`);
-        return simulateLocalGet(action, params);
-      }
+    if (!baseUrl) {
+      throw new Error('URL Google Apps Script belum dikonfigurasi.');
     }
 
-    return simulateLocalGet(action, params);
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set('action', action);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+      const response = await fetch(url.toString(), { method: 'GET' });
+      const res = await response.json();
+      if (res && res.success) {
+        return res.data;
+      }
+      if (res && res.error) {
+        throw new Error(res.error.message || 'Gagal mengambil data dari Google Sheets.');
+      }
+      throw new Error('Respons tidak valid dari server Google Apps Script.');
+    } catch (err) {
+      console.error(`[ApiService] GET Error pada aksi "${action}":`, err);
+      throw err;
+    }
   }
 
   static async ping() {

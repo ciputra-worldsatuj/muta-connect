@@ -21,7 +21,7 @@ Anda **TIDAK PERLU** membuat tabel dan kolom satu per satu secara manual. Sudah 
    - 25 Data Anggota MUA lengkap dengan unit, penanggung jawab, bobot NPP (total 100%), email & WhatsApp
    - 1 Sidang MUA 2026 resmi (Sabtu, 25 Juli 2026, 09.00 WIB – selesai)
    - Agenda musyawarah & soal voting
-   - 25 Undangan ber-QR Code dengan format `CW1JXXXXX`
+   - 25 Undangan ber-QR Code dengan format 4 Digit Angka (1001 s/d 1025)
 
 *(Catatan: Anda juga bisa me-refresh spreadsheet setelah kode disimpan, lalu klik menu **⚡ MUTA Connect > 🚀 Setup Database & Generate Data Dummy**).*
 

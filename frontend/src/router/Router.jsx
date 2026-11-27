@@ -10,7 +10,7 @@ import { ROUTES_CONFIG, ROUTE_LAYOUTS } from './routes';
  */
 
 export function parseHash(hashStr) {
-  const cleanHash = (hashStr || '').replace(/^#/, '').trim() || '/beranda';
+  const cleanHash = (hashStr || '').replace(/^#/, '').trim() || '/login';
   const [pathOnly, queryString] = cleanHash.split('?');
   
   const query = {};

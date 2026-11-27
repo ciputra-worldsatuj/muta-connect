@@ -47,7 +47,10 @@ export const ROUTES_CONFIG = [
   { path: '/proyektor/voting', screenId: 'S-19', title: 'Dashboard Voting', layout: ROUTE_LAYOUTS.PROJECTOR, roles: ['admin', 'panitia'] },
   
   // Voting Publik (HP Pemilih)
+  { path: '/vote', screenId: 'S-20', title: 'Bilik Suara Pemilih', layout: ROUTE_LAYOUTS.PUBLIC, roles: ['*'] },
   { path: '/vote/:kodeSidang', screenId: 'S-20', title: 'Bilik Suara Pemilih', layout: ROUTE_LAYOUTS.PUBLIC, roles: ['*'] },
+  { path: '/pemilih', screenId: 'S-20', title: 'Bilik Suara Pemilih', layout: ROUTE_LAYOUTS.PUBLIC, roles: ['*'] },
+  { path: '/pemilih/:kodeSidang', screenId: 'S-20', title: 'Bilik Suara Pemilih', layout: ROUTE_LAYOUTS.PUBLIC, roles: ['*'] },
   
   // Laporan & Dokumen
   { path: '/laporan', screenId: 'S-25', title: 'Laporan Rekapitulasi Sidang', layout: ROUTE_LAYOUTS.APP, roles: ['admin', 'panitia'] },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import QRCode from 'qrcode';
 import { useApp } from '../context/AppContext';
 import { ApiService } from '../api/client';
 import {
@@ -11,7 +12,9 @@ import {
   CheckCircle2,
   Building2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  QrCode,
+  Smartphone
 } from 'lucide-react';
 
 /**
@@ -90,8 +93,6 @@ export function ProyektorKehadiranSkeleton() {
     <div className="flex-1 flex flex-col justify-between max-w-7xl mx-auto w-full space-y-3">
       {/* Judul Sidang & PPPSRS */}
       <div className="text-center space-y-0.5">
-        {/* <div className="inline-flex items-center justify-center gap-2 text-xs md:text-sm uppercase font-extrabold text-brand-dark-accent tracking-widest"> */}
-        {/* <Building2 className="w-4 h-4 text-brand-dark-accent" /> */}
         <div className="inline-flex items-center justify-center gap-2 text-base md:text-xl uppercase font-extrabold text-brand-dark-accent tracking-widest">
           <Building2 className="w-5 h-5 md:w-6 md:h-6 text-brand-dark-accent shrink-0" />
           <span>PPPSRSKC SUB BAGIAN  OFFICE 1 CIPUTRA WORLD 1 JAKARTA</span>
@@ -338,6 +339,25 @@ export function ProyektorVotingSkeleton() {
   const sessionId = currentSession?.id || 's-2026-muta';
 
   const [projectorData, setProjectorData] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  const votingUrl = useMemo(() => {
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+    const kode = projectorData?.sessionKodePublik || currentSession?.kode_publik || 'CW2026';
+    return `${origin}${pathname}#/vote/${kode}`;
+  }, [projectorData?.sessionKodePublik, currentSession?.kode_publik]);
+
+  useEffect(() => {
+    QRCode.toDataURL(votingUrl, {
+      width: 240,
+      margin: 2,
+      color: {
+        dark: '#020617',
+        light: '#FFFFFF'
+      }
+    }).then(url => setQrDataUrl(url)).catch(() => {});
+  }, [votingUrl]);
 
   useEffect(() => {
     loadData();
@@ -397,9 +417,9 @@ export function ProyektorVotingSkeleton() {
   return (
     <div className="flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full space-y-6">
       <div className="text-center space-y-1">
-        <div className="inline-flex items-center justify-center gap-2 text-sm md:text-base uppercase font-extrabold text-brand-dark-accent tracking-widest">
-          <Building2 className="w-5 h-5 text-brand-dark-accent" />
-          <span>PPPSRSKC CIPUTRA WORLD 1 JAKARTA</span>
+        <div className="inline-flex items-center justify-center gap-2 text-base md:text-xl uppercase font-extrabold text-brand-dark-accent tracking-widest">
+          <Building2 className="w-5 h-5 md:w-6 md:h-6 text-brand-dark-accent shrink-0" />
+          <span>PPPSRSKC SUB BAGIAN  OFFICE 1 CIPUTRA WORLD 1 JAKARTA</span>
         </div>
         <h1 className="text-2xl md:text-5xl font-black text-content-dark-main">
           {activeQuestion ? activeQuestion.pertanyaan : 'Belum Ada Soal Voting Aktif'}
@@ -411,14 +431,45 @@ export function ProyektorVotingSkeleton() {
 
       {activeQuestion ? (
         <div className="space-y-6">
-          {/* Progres Pemilih Masuk - Perbesar 0 / 9 Pemilih & Hapus Kerahasiaan Suara */}
-          <div className="bg-surface-dark-card border-2 border-surface-dark-border rounded-3xl p-6 text-center max-w-lg mx-auto shadow-xl">
-            <div className="text-xs uppercase font-bold text-content-dark-muted tracking-wider">
-              Suara Masuk Saat Ini
+          {/* Barcode Scan Link Voting & Progres Pemilih Masuk */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto w-full items-stretch">
+            {/* Card 1: Barcode QR Link Voting */}
+            <div className="bg-surface-dark-card border-2 border-surface-dark-border rounded-3xl p-5 text-center shadow-xl flex flex-col items-center justify-center space-y-2.5">
+              <div className="text-[11px] uppercase font-bold text-brand-dark-accent tracking-wider flex items-center gap-1.5">
+                <QrCode className="w-4 h-4 text-brand-dark-accent" />
+                <span>Scan Barcode Bilik Suara</span>
+              </div>
+              {qrDataUrl ? (
+                <div className="p-2 bg-white rounded-2xl shadow-inner border border-slate-700">
+                  <img src={qrDataUrl} alt="QR Link Voting" className="w-32 h-32 md:w-36 md:h-36 rounded-lg" />
+                </div>
+              ) : (
+                <div className="w-32 h-32 md:w-36 md:h-36 bg-slate-800 rounded-2xl flex items-center justify-center text-xs text-content-dark-muted">
+                  Memuat Barcode...
+                </div>
+              )}
+              <div className="space-y-0.5 text-center">
+                <div className="text-xs font-semibold text-content-dark-main">
+                  Arahkan Kamera HP ke QR Code
+                </div>
+                <div className="text-[10px] text-content-dark-muted font-mono">
+                  Input 4-Digit UID QR Anda di HP
+                </div>
+              </div>
             </div>
-            <div className="text-6xl md:text-8xl font-black text-brand-dark-primary tabular-nums py-3 tracking-tight">
-              {voteResults?.totalVoters || 0}
-              <span className="text-3xl md:text-5xl text-content-dark-muted font-bold"> / {voteResults?.presentVoters || 0} Pemilih</span>
+
+            {/* Card 2: Suara Masuk Saat Ini (2 Kolom di Desktop) */}
+            <div className="md:col-span-2 bg-surface-dark-card border-2 border-surface-dark-border rounded-3xl p-6 text-center shadow-xl flex flex-col justify-center">
+              <div className="text-xs uppercase font-bold text-content-dark-muted tracking-wider">
+                Suara Masuk Saat Ini
+              </div>
+              <div className="text-6xl md:text-8xl font-black text-brand-dark-primary tabular-nums py-3 tracking-tight">
+                {voteResults?.totalVoters || 0}
+                <span className="text-3xl md:text-5xl text-content-dark-muted font-bold"> / {voteResults?.presentVoters || 0} Pemilih</span>
+              </div>
+              <div className="text-xs text-content-dark-muted font-medium">
+                Peserta Hadir yang Berhak Memberikan Suara
+              </div>
             </div>
           </div>
 
@@ -449,14 +500,32 @@ export function ProyektorVotingSkeleton() {
           </div>
         </div>
       ) : (
-        <div className="bg-surface-dark-card border border-surface-dark-border rounded-3xl p-12 text-center max-w-xl mx-auto w-full space-y-4">
-          <Vote className="w-16 h-16 text-brand-dark-accent mx-auto animate-pulse" />
-          <h3 className="text-lg font-bold text-content-dark-main">
-            Menunggu Instruksi Panitia Sidang
-          </h3>
-          <p className="text-xs text-content-dark-muted leading-relaxed">
-            Hasil pemungutan suara berbobot NPP akan langsung dihitung otomatis dan ditampilkan secara agregat setelah sesi soal ditutup oleh panitia.
-          </p>
+        <div className="bg-surface-dark-card border border-surface-dark-border rounded-3xl p-8 md:p-12 text-center max-w-xl mx-auto w-full space-y-5">
+          <div className="flex flex-col items-center space-y-3">
+            <div className="text-xs uppercase font-bold text-brand-dark-accent tracking-wider flex items-center gap-1.5">
+              <QrCode className="w-4 h-4 text-brand-dark-accent" />
+              <span>Scan Barcode untuk Masuk ke Bilik Suara</span>
+            </div>
+            {qrDataUrl && (
+              <div className="p-2.5 bg-white rounded-2xl shadow-lg border border-slate-700">
+                <img src={qrDataUrl} alt="QR Link Voting" className="w-40 h-40 rounded-xl" />
+              </div>
+            )}
+            <div className="text-xs font-semibold text-content-dark-main">
+              Arahkan Kamera HP Anda ke QR Code di atas
+            </div>
+            <div className="text-[11px] text-content-dark-muted font-mono">
+              Input 4-Digit UID QR Anda setelah masuk
+            </div>
+          </div>
+          <div className="pt-2 border-t border-surface-dark-border/60">
+            <h3 className="text-base font-bold text-content-dark-main">
+              Menunggu Pembacaan & Pembukaan Soal oleh Panitia
+            </h3>
+            <p className="text-xs text-content-dark-muted mt-1 leading-relaxed">
+              Setelah dibuka, soal voting akan otomatis muncul di HP Anda. Hasil pemungutan suara berbobot NPP akan langsung dihitung otomatis dan ditampilkan secara agregat.
+            </p>
+          </div>
         </div>
       )}
 
