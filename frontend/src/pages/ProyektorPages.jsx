@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ApiService } from '../api/client';
-import { 
-  Clock, 
-  TrendingUp, 
-  Users, 
-  Radio, 
-  Vote, 
+import {
+  Clock,
+  TrendingUp,
+  Users,
+  Radio,
+  Vote,
   Award,
   CheckCircle2,
   Building2,
@@ -92,7 +92,7 @@ export function ProyektorKehadiranSkeleton() {
       <div className="text-center space-y-0.5">
         <div className="inline-flex items-center justify-center gap-2 text-xs md:text-sm uppercase font-extrabold text-brand-dark-accent tracking-widest">
           <Building2 className="w-4 h-4 text-brand-dark-accent" />
-          <span>PPPSRSKC CIPUTRA WORLD 1 JAKARTA</span>
+          <span>PPPSRSKC SUB BAGIAN  OFFICE 1 CIPUTRA WORLD 1 JAKARTA</span>
         </div>
         <h1 className="text-2xl md:text-4xl font-black text-content-dark-main tracking-tight">
           {data?.sessionTitle || currentSession?.title}
@@ -117,9 +117,8 @@ export function ProyektorKehadiranSkeleton() {
               ({data?.presentNpp ? data.presentNpp.toFixed(4) : '0.0000'} dari {data?.totalNpp || 100} NPP)
             </div>
           </div>
-          <div className={`py-1 px-3 rounded-lg text-[11px] font-bold uppercase tracking-wider ${
-            isQuorumReached ? 'bg-status-success-dark/20 text-status-success-dark' : 'bg-status-warning-dark/20 text-status-warning-dark'
-          }`}>
+          <div className={`py-1 px-3 rounded-lg text-[11px] font-bold uppercase tracking-wider ${isQuorumReached ? 'bg-status-success-dark/20 text-status-success-dark' : 'bg-status-warning-dark/20 text-status-warning-dark'
+            }`}>
             {isQuorumReached ? '✓ KUORUM TERCAPAI (SAH)' : `BELUM KUORUM (> ${threshold.toFixed(0)}%)`}
           </div>
         </div>
@@ -154,7 +153,7 @@ export function ProyektorKehadiranSkeleton() {
             </div>
             <div className="text-[11px] text-content-dark-muted mt-1">
               {data?.sessionStatus === 'Berjalan' ? 'Sidang Sedang Berlangsung' :
-               data?.sessionStatus === 'Ditutup' ? 'Sidang Telah Ditutup & Dikunci' : 'Registrasi Peserta Dibuka'}
+                data?.sessionStatus === 'Ditutup' ? 'Sidang Telah Ditutup & Dikunci' : 'Registrasi Peserta Dibuka'}
             </div>
           </div>
           <div className="py-1 px-3 rounded-lg bg-surface-dark-bg text-content-dark-muted text-[11px] font-mono">
@@ -209,11 +208,10 @@ export function ProyektorKehadiranSkeleton() {
                   key={page}
                   type="button"
                   onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    currentPage === page
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${currentPage === page
                       ? 'bg-brand-dark-primary text-slate-950 shadow-md font-black scale-105'
                       : 'text-content-dark-muted hover:text-white hover:bg-slate-800'
-                  }`}
+                    }`}
                 >
                   Page {page}
                 </button>
@@ -236,11 +234,10 @@ export function ProyektorKehadiranSkeleton() {
               <button
                 type="button"
                 onClick={() => setAutoRotate(r => !r)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
-                  autoRotate
+                className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${autoRotate
                     ? 'bg-brand-dark-accent/20 border-brand-dark-accent text-brand-dark-accent font-bold'
                     : 'bg-surface-dark-bg text-content-dark-muted border-surface-dark-border hover:text-white'
-                }`}
+                  }`}
                 title="Putar halaman otomatis setiap 10 detik"
               >
                 {autoRotate ? 'Auto: ON (10s)' : 'Auto: OFF'}
@@ -267,13 +264,12 @@ export function ProyektorKehadiranSkeleton() {
           {currentCards.map((card) => (
             <div
               key={card.id}
-              className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between space-y-1.5 ${
-                card.statusAbsensi === 'On-Time'
+              className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between space-y-1.5 ${card.statusAbsensi === 'On-Time'
                   ? 'bg-emerald-950/30 border-emerald-500/50 shadow-sm'
                   : card.statusAbsensi === 'Late'
-                  ? 'bg-amber-950/30 border-amber-500/50 shadow-sm'
-                  : 'bg-surface-dark-bg/60 border-surface-dark-border/60 opacity-80'
-              }`}
+                    ? 'bg-amber-950/30 border-amber-500/50 shadow-sm'
+                    : 'bg-surface-dark-bg/60 border-surface-dark-border/60 opacity-80'
+                }`}
             >
               {/* Baris 1: Kode Unit & Status Absensi */}
               <div className="flex items-start justify-between gap-1">
@@ -281,13 +277,12 @@ export function ProyektorKehadiranSkeleton() {
                   {card.kodeUnit}
                 </span>
                 <span
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
-                    card.statusAbsensi === 'On-Time'
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${card.statusAbsensi === 'On-Time'
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                       : card.statusAbsensi === 'Late'
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                      : 'bg-slate-700/40 text-slate-400 border border-slate-600/40'
-                  }`}
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                        : 'bg-slate-700/40 text-slate-400 border border-slate-600/40'
+                    }`}
                 >
                   {card.statusAbsensi}
                 </span>
