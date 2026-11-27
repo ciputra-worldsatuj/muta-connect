@@ -94,7 +94,6 @@ export function ProyektorKehadiranSkeleton() {
         {/* <Building2 className="w-4 h-4 text-brand-dark-accent" /> */}
         <div className="inline-flex items-center justify-center gap-2 text-base md:text-xl uppercase font-extrabold text-brand-dark-accent tracking-widest">
           <Building2 className="w-5 h-5 md:w-6 md:h-6 text-brand-dark-accent shrink-0" />
-
           <span>PPPSRSKC SUB BAGIAN  OFFICE 1 CIPUTRA WORLD 1 JAKARTA</span>
         </div>
         <h1 className="text-2xl md:text-4xl font-black text-content-dark-main tracking-tight">
